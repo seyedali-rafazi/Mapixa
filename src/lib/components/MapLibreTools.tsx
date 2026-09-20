@@ -1,0 +1,205 @@
+import type { FC, ReactNode } from "react";
+import type { ControlPosition } from "react-map-gl/maplibre";
+import "../styles/map-tools.css";
+import { MapToolProvider } from "../context/MapToolContext";
+import { LayerVisibilityProvider } from "../context/LayerVisibilityContext";
+import { AccordionGroupProvider } from "../context/AccordionGroupContext";
+import MapControlBox from "./MapControlBox";
+import MapDrawTools from "./DrawTools/MapDrawTools";
+import ExtraMapTools from "./ExtraTools/ExtraMapTools";
+import MapNavigator from "./NavigationTools/MapNavigator";
+import CoordinateDisplay from "./NavigationTools/CoordinateDisplay";
+import MapViewControl from "./NavigationTools/MapViewControl";
+import MapFlatViewEnforcer from "./NavigationTools/MapFlatViewEnforcer";
+import MapResizeHandler from "./NavigationTools/MapResizeHandler";
+import type {
+  ToolsConfiguration,
+  LayerVisibilityState,
+  AfterDrawMode,
+  ExtraActionItem,
+  ToolType,
+} from "../types/tools";
+import type { DrawEndEvent, DrawChangeEvent, DrawDeleteEvent } from "../types/events";
+
+export interface MapLibreToolsProps {
+  children?: ReactNode;
+  /**
+   * Position for the main draw and extra toolbars.
+   * Defaults to 'top-right'
+   */
+  toolbarPosition?: ControlPosition;
+  /**
+   * Position for navigator zoom/home controls.
+   * Defaults to 'top-left'
+   */
+  navigatorPosition?: ControlPosition;
+  /**
+   * Position for live coordinate display.
+   * Defaults to 'bottom-left'
+   */
+  coordinatePosition?: ControlPosition;
+  /**
+   * Position for fullscreen control.
+   * Defaults to 'bottom-right'
+   */
+  viewControlPosition?: ControlPosition;
+  /**
+   * Controlled or initial visibility of tool layers (markers, lines, polygons, etc.)
+   * Example: visibility={{ polyine: true, circle: false }} or visibility={{ line: true, circle: false }}
+   */
+  visibility?: Partial<LayerVisibilityState>;
+  /**
+   * Initial visibility of tool layers (fallback for uncontrolled)
+   */
+  initialVisibility?: Partial<LayerVisibilityState>;
+  /**
+   * Gap between toolbar accordion boxes in pixels.
+   * Defaults to 12.
+   */
+  toolbarGap?: number;
+  /**
+   * Tool configurations (enabled/disabled, custom extraActions per tool)
+   */
+  toolsConfig?: ToolsConfiguration;
+  /**
+   * Behavior after finishing a draw action:
+   * - 'modal': opens configuration/styling modal with extra actions
+   * - 'auto-save': automatically commits the feature and triggers onDrawEnd
+   * - 'callback': triggers onDrawEnd immediately
+   */
+  afterDrawMode?: AfterDrawMode;
+  /**
+   * Global extra actions injected into all tool modals
+   */
+  extraActions?: ExtraActionItem[];
+  /**
+   * Callback fired when any tool finishes drawing a shape, marker, or measurement
+   */
+  onDrawEnd?: (event: DrawEndEvent) => void;
+  /**
+   * Callback fired when a tool starts drawing
+   */
+  onDrawStart?: (tool: ToolType) => void;
+  /**
+   * Callback fired when features change
+   */
+  onDrawChange?: (event: DrawChangeEvent) => void;
+  /**
+   * Callback fired when a feature is deleted
+   */
+  onDrawDelete?: (event: DrawDeleteEvent) => void;
+  /**
+   * Callback fired when layer visibility toggles
+   */
+  onVisibilityChange?: (
+    tool: ToolType,
+    visible: boolean,
+    allState: LayerVisibilityState
+  ) => void;
+
+  showDrawTools?: boolean;
+  showExtraTools?: boolean;
+  showNavigator?: boolean;
+  showCoordinates?: boolean;
+  showFullscreen?: boolean;
+  enforceFlatView?: boolean;
+  autoResize?: boolean;
+}
+
+export const MapLibreTools: FC<MapLibreToolsProps> = ({
+  children,
+  toolbarPosition = "top-right",
+  navigatorPosition = "top-left",
+  coordinatePosition = "bottom-left",
+  viewControlPosition = "bottom-right",
+  visibility,
+  initialVisibility,
+  toolbarGap = 12,
+  toolsConfig,
+  afterDrawMode = "modal",
+  extraActions,
+  onDrawEnd,
+  onDrawStart,
+  onDrawChange,
+  onDrawDelete,
+  onVisibilityChange,
+  showDrawTools = true,
+  showExtraTools = true,
+  showNavigator = true,
+  showCoordinates = true,
+  showFullscreen = true,
+  enforceFlatView = true,
+  autoResize = true,
+}) => {
+  return (
+    <MapToolProvider
+      toolsConfig={toolsConfig}
+      afterDrawMode={afterDrawMode}
+      extraActions={extraActions}
+      onDrawEnd={onDrawEnd}
+      onDrawStart={onDrawStart}
+      onDrawChange={onDrawChange}
+      onDrawDelete={onDrawDelete}
+    >
+      <LayerVisibilityProvider
+        visibility={visibility}
+        initialVisibility={initialVisibility}
+        onVisibilityChange={onVisibilityChange}
+      >
+        <AccordionGroupProvider>
+          {enforceFlatView && <MapFlatViewEnforcer />}
+          {autoResize && <MapResizeHandler />}
+
+          {/* Navigator Box */}
+          {showNavigator && (
+            <MapControlBox position={navigatorPosition}>
+              <MapNavigator />
+            </MapControlBox>
+          )}
+
+          {/* Main Drawing & Extra Tools Toolbar with pure CSS flex gap */}
+          <MapControlBox position={toolbarPosition}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: `${toolbarGap}px`,
+              }}
+            >
+              {showDrawTools && (
+                <MapDrawTools
+                  config={toolsConfig}
+                  extraActions={extraActions}
+                />
+              )}
+              {showExtraTools && (
+                <ExtraMapTools
+                  config={toolsConfig}
+                  extraActions={extraActions}
+                />
+              )}
+            </div>
+          </MapControlBox>
+
+          {/* Coordinates readout */}
+          {showCoordinates && (
+            <MapControlBox position={coordinatePosition}>
+              <CoordinateDisplay />
+            </MapControlBox>
+          )}
+
+          {/* View / Fullscreen */}
+          {showFullscreen && (
+            <MapControlBox position={viewControlPosition}>
+              <MapViewControl />
+            </MapControlBox>
+          )}
+
+          {children}
+        </AccordionGroupProvider>
+      </LayerVisibilityProvider>
+    </MapToolProvider>
+  );
+};
+
+export default MapLibreTools;
