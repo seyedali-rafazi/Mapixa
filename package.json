@@ -16,8 +16,16 @@
     "marker",
     "geojson"
   ],
-  "author": "",
+  "author": "Seyed Ali Rafazi",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seyedali-rafazi/Mapixa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/seyedali-rafazi/Mapixa/issues"
+  },
+  "homepage": "https://github.com/seyedali-rafazi/Mapixa#readme",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -45,6 +53,7 @@
     "build": "vite build --mode lib",
     "build:lib": "vite build --mode lib",
     "build:demo": "vite build --mode demo",
+    "prepublishOnly": "npm run build:lib",
     "preview": "vite preview",
     "lint": "eslint ."
   },
