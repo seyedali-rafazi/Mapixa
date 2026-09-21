@@ -3,7 +3,15 @@ export { MapLibreTools, MapLibreTools as Mapixa } from "./components/MapLibreToo
 export type {
   MapLibreToolsProps,
   MapLibreToolsProps as MapixaProps,
+  MapLibreToolsComponent,
+  MapLibreToolsComponent as MapixaComponent,
 } from "./components/MapLibreTools";
+
+// Custom Extensible Components
+export { MapButton } from "./components/Custom/MapButton";
+export type { MapButtonProps } from "./components/Custom/MapButton";
+export { MapAccordion } from "./components/Custom/MapAccordion";
+export type { MapAccordionProps } from "./components/Custom/MapAccordion";
 
 // Containers & Layout
 export { MapControlBox } from "./components/MapControlBox";
@@ -83,6 +91,20 @@ export {
   AccordionGroupProvider,
   useAccordionGroupItem,
 } from "./context/AccordionGroupContext";
+
+export {
+  AccordionContext,
+  AccordionContextProvider,
+  useAccordionContext,
+} from "./context/AccordionContext";
+export type { AccordionContextValue } from "./context/AccordionContext";
+
+export {
+  ToolbarContext,
+  ToolbarProvider,
+  useToolbarContext,
+} from "./context/ToolbarContext";
+export type { ToolbarContextValue } from "./context/ToolbarContext";
 
 // Types
 export type {

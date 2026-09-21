@@ -102,6 +102,7 @@
 
 /* Icon Buttons */
 .mlt-icon-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -128,15 +129,37 @@
   transform: scale(0.95);
 }
 
-.mlt-icon-btn.active {
+.mlt-icon-btn.active,
+.mlt-icon-btn.mlt-icon-btn-active {
   background: var(--mlt-primary);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(0, 122, 255, 0.35);
 }
 
-.mlt-icon-btn.active:hover {
+.mlt-icon-btn.active:hover,
+.mlt-icon-btn.mlt-icon-btn-active:hover {
   background: var(--mlt-primary-hover);
   color: #ffffff;
+}
+
+.mlt-button-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--mlt-danger);
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .mlt-icon-btn.danger {

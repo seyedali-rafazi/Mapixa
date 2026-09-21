@@ -3,6 +3,8 @@ import { ArrowUpIcon } from "./ui/Icons";
 import { useAccordionGroupItem } from "../context/AccordionGroupContext";
 import { isDarkColor } from "../utils/colorUtils";
 
+import { AccordionContextProvider } from "../context/AccordionContext";
+
 export interface ExpandableBoxProps {
   children: ReactNode;
   accordionText: string;
@@ -26,7 +28,8 @@ export const ExpandableBox: FC<ExpandableBoxProps> = ({
   style,
   className = "",
 }) => {
-  const { expanded, setExpanded } = useAccordionGroupItem(id ?? accordionText);
+  const effectiveId = id ?? accordionText;
+  const { expanded, setExpanded } = useAccordionGroupItem(effectiveId);
   const isDark = isDarkColor(backgroundColor);
 
   const containerStyle: React.CSSProperties = {
@@ -57,7 +60,16 @@ export const ExpandableBox: FC<ExpandableBoxProps> = ({
         aria-hidden={!expanded}
       >
         <div className="mlt-accordion-inner">
-          {children}
+          <AccordionContextProvider
+            value={{
+              isInAccordion: true,
+              accordionId: effectiveId,
+              backgroundColor,
+              isDark,
+            }}
+          >
+            {children}
+          </AccordionContextProvider>
 
           <div className="mlt-divider" />
 
