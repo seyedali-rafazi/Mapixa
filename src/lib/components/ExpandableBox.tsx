@@ -1,6 +1,7 @@
 import { type FC, type ReactNode } from "react";
 import { ArrowUpIcon } from "./ui/Icons";
 import { useAccordionGroupItem } from "../context/AccordionGroupContext";
+import { isDarkColor } from "../utils/colorUtils";
 
 export interface ExpandableBoxProps {
   children: ReactNode;
@@ -9,6 +10,9 @@ export interface ExpandableBoxProps {
   id?: string;
   tooltip?: string;
   footer?: ReactNode;
+  backgroundColor?: string;
+  style?: React.CSSProperties;
+  className?: string;
 }
 
 export const ExpandableBox: FC<ExpandableBoxProps> = ({
@@ -18,12 +22,22 @@ export const ExpandableBox: FC<ExpandableBoxProps> = ({
   id,
   tooltip,
   footer,
+  backgroundColor,
+  style,
+  className = "",
 }) => {
   const { expanded, setExpanded } = useAccordionGroupItem(id ?? accordionText);
+  const isDark = isDarkColor(backgroundColor);
+
+  const containerStyle: React.CSSProperties = {
+    ...(backgroundColor ? { background: backgroundColor } : {}),
+    ...style,
+  };
 
   return (
     <div
-      className={`mlt-expandable-box ${expanded ? "expanded" : ""}`}
+      className={`mlt-expandable-box ${expanded ? "expanded" : ""} ${isDark ? "mlt-dark" : ""} ${className}`.trim()}
+      style={containerStyle}
       title={tooltip || `${accordionText} Tools`}
     >
       {/* Main Toggle Button */}

@@ -28,6 +28,11 @@ export interface MapToolContextValue {
   onDrawStart?: (tool: ToolType) => void;
   onDrawChange?: (event: DrawChangeEvent) => void;
   onDrawDelete?: (event: DrawDeleteEvent) => void;
+  themeColor?: string;
+  modalBackground?: string;
+  modalStyle?: React.CSSProperties;
+  popoverBackground?: string;
+  popoverStyle?: React.CSSProperties;
 }
 
 const MapToolContext = createContext<MapToolContextValue>({
@@ -44,6 +49,11 @@ export interface MapToolProviderProps {
   onDrawStart?: (tool: ToolType) => void;
   onDrawChange?: (event: DrawChangeEvent) => void;
   onDrawDelete?: (event: DrawDeleteEvent) => void;
+  themeColor?: string;
+  modalBackground?: string;
+  modalStyle?: React.CSSProperties;
+  popoverBackground?: string;
+  popoverStyle?: React.CSSProperties;
 }
 
 export function MapToolProvider({
@@ -55,6 +65,11 @@ export function MapToolProvider({
   onDrawStart,
   onDrawChange,
   onDrawDelete,
+  themeColor,
+  modalBackground,
+  modalStyle,
+  popoverBackground,
+  popoverStyle,
 }: MapToolProviderProps) {
   const [activeTool, setActiveTool] = useState<ActiveTool>(null);
 
@@ -82,6 +97,11 @@ export function MapToolProvider({
       onDrawStart,
       onDrawChange,
       onDrawDelete,
+      themeColor,
+      modalBackground,
+      modalStyle,
+      popoverBackground,
+      popoverStyle,
     }),
     [
       activeTool,
@@ -93,6 +113,11 @@ export function MapToolProvider({
       onDrawStart,
       onDrawChange,
       onDrawDelete,
+      themeColor,
+      modalBackground,
+      modalStyle,
+      popoverBackground,
+      popoverStyle,
     ]
   );
 

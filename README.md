@@ -208,6 +208,54 @@ function MyComponent() {
 
 ---
 
+## 🎨 Customizing Background Colors & Theming
+
+You can easily customize the background colors of the **Accordion toolbars** (Draw and Extra tools), **Live Coordinate display**, and **Navigation controls** via React props or CSS variables:
+
+### 1. Via Component Props
+
+Pass `accordionBackground`, `coordinateBackground`, or `navigatorBackground` (or their shorthand `accordionBg`, `coordinateBg`, `navigatorBg`) directly to `<Mapixa />`:
+
+```tsx
+<Mapixa
+  accordionBackground="rgba(255, 255, 255, 0.95)"
+  coordinateBackground="#1e1e1e"
+  navigatorBackground="rgba(255, 255, 255, 0.95)"
+  // You can also pass custom style objects:
+  // accordionStyle={{ backdropFilter: "blur(20px)" }}
+  // coordinateStyle={{ color: "#ffffff" }}
+  // navigatorStyle={{ borderRadius: "16px" }}
+/>
+```
+
+When importing individual modular components:
+
+```tsx
+<MapDrawTools accordionBackground="#ffffff" />
+<ExtraMapTools accordionBackground="#ffffff" />
+<CoordinateDisplay backgroundColor="#1e1e1e" />
+<MapNavigator backgroundColor="#ffffff" />
+```
+
+### 2. Via CSS Custom Properties (Variables)
+
+Override the CSS variables in your global stylesheet or dark mode classes:
+
+```css
+:root {
+  /* Accordion Draw & Tool boxes */
+  --mlt-accordion-bg: rgba(255, 255, 255, 0.92);
+
+  /* Coordinate Readout */
+  --mlt-coordinate-bg: rgba(255, 255, 255, 0.92);
+
+  /* Navigation Bar */
+  --mlt-navigator-bg: rgba(255, 255, 255, 0.92);
+}
+```
+
+---
+
 ## 🧩 Modular Components
 
 If you prefer custom layouts rather than the all-in-one `<Mapixa />`, you can import individual components:
@@ -248,26 +296,6 @@ import {
 - `downloadGeoJSON(data, filename)`: Triggers browser download of GeoJSON.
 - `copyToClipboard(text)`: Cross-browser clipboard copy.
 - `downloadCanvasArea(canvas, rect, filename)`: Canvas crop export.
-
----
-
-## 🚢 Publishing to NPM
-
-To publish this package to NPM under the name **mapixa**:
-
-1. Build the distributable bundle:
-   ```bash
-   npm run build:lib
-   ```
-2. Check the bundle contents:
-   ```bash
-   npm pack --dry-run
-   ```
-3. Login and publish:
-   ```bash
-   npm login
-   npm publish --access public
-   ```
 
 ---
 

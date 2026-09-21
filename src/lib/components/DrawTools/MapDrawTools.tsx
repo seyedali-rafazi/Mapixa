@@ -14,18 +14,29 @@ export interface MapDrawToolsProps {
   id?: string;
   config?: ToolsConfiguration;
   extraActions?: ExtraActionItem[];
+  accordionBackground?: string;
+  backgroundColor?: string;
+  style?: React.CSSProperties;
+  className?: string;
 }
 
 export const MapDrawTools: FC<MapDrawToolsProps> = ({
   id = "draw",
   config,
   extraActions,
+  accordionBackground,
+  backgroundColor,
+  style,
+  className,
 }) => {
   return (
     <ExpandableBox
       id={id}
       accordionText="DRAW"
       accordionIcon={<DrawIcon size={18} />}
+      backgroundColor={accordionBackground ?? backgroundColor}
+      style={style}
+      className={className}
     >
       {config?.marker?.visible !== false && (
         <DrawMarkerControl

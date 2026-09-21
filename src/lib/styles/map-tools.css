@@ -16,6 +16,14 @@
   --mlt-radius: 12px;
   --mlt-radius-sm: 8px;
   --mlt-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mlt-accordion-bg: var(--mlt-bg-glass);
+  --mlt-coordinate-bg: var(--mlt-bg-glass);
+  --mlt-navigator-bg: var(--mlt-bg-glass);
+  --mlt-fullscreen-bg: var(--mlt-bg-glass);
+  --mlt-modal-bg: var(--mlt-bg-glass);
+  --mlt-popover-bg: var(--mlt-bg-glass);
+  --mlt-border: rgba(0, 0, 0, 0.08);
+  --mlt-text-muted: #86868b;
 }
 
 /* Base Panel */
@@ -29,6 +37,67 @@
   box-shadow: var(--mlt-shadow);
   color: var(--mlt-text);
   box-sizing: border-box;
+}
+
+.mlt-coordinate-display {
+  background: var(--mlt-coordinate-bg);
+}
+
+.mlt-navigator {
+  background: var(--mlt-navigator-bg);
+}
+
+.mlt-view-control {
+  background: var(--mlt-fullscreen-bg);
+}
+
+/* Dark Theme Variant (auto-applied when background is dark) */
+.mlt-panel.mlt-dark,
+.mlt-expandable-box.mlt-dark {
+  --mlt-text: #ffffff;
+  --mlt-text-secondary: #cbd5e1;
+  --mlt-text-muted: #94a3b8;
+  --mlt-border: rgba(255, 255, 255, 0.15);
+  --mlt-border-glass: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.mlt-expandable-box.mlt-dark .mlt-accordion-toggle {
+  color: #cbd5e1;
+}
+
+.mlt-expandable-box.mlt-dark .mlt-accordion-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.mlt-expandable-box.mlt-dark .mlt-accordion-toggle.expanded {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.15);
+}
+
+.mlt-expandable-box.mlt-dark .mlt-divider {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mlt-panel.mlt-dark .mlt-icon-btn,
+.mlt-expandable-box.mlt-dark .mlt-icon-btn {
+  color: #cbd5e1;
+}
+
+.mlt-panel.mlt-dark .mlt-icon-btn:hover,
+.mlt-expandable-box.mlt-dark .mlt-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #60a5fa;
+}
+
+.mlt-panel.mlt-dark .mlt-icon-btn.active,
+.mlt-expandable-box.mlt-dark .mlt-icon-btn.active,
+.mlt-panel.mlt-dark .mlt-icon-btn-active,
+.mlt-expandable-box.mlt-dark .mlt-icon-btn-active {
+  background: #2563eb;
+  color: #ffffff;
 }
 
 /* Icon Buttons */
@@ -142,7 +211,7 @@
   align-items: center;
   overflow: hidden;
   border-radius: var(--mlt-radius);
-  background: var(--mlt-bg-glass);
+  background: var(--mlt-accordion-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--mlt-border-glass);
@@ -279,7 +348,7 @@
 }
 
 .mlt-modal {
-  background: var(--mlt-bg-glass);
+  background: var(--mlt-modal-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--mlt-border-glass);
@@ -405,7 +474,7 @@
 /* Floating Popover */
 .mlt-popover {
   position: absolute;
-  background: var(--mlt-bg-glass);
+  background: var(--mlt-popover-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--mlt-border-glass);
@@ -417,6 +486,81 @@
   color: var(--mlt-text);
   box-sizing: border-box;
   animation: mlt-fade-in 0.15s ease-out;
+}
+
+/* Dark Theme Variant for Modals and Popovers */
+.mlt-modal.mlt-dark,
+.mlt-popover.mlt-dark {
+  --mlt-text: #ffffff;
+  --mlt-text-secondary: #cbd5e1;
+  --mlt-text-muted: #94a3b8;
+  --mlt-border: rgba(255, 255, 255, 0.15);
+  --mlt-border-glass: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.mlt-modal.mlt-dark .mlt-modal-header {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.mlt-modal.mlt-dark .mlt-modal-footer {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+.mlt-modal.mlt-dark .mlt-icon-btn,
+.mlt-popover.mlt-dark .mlt-icon-btn {
+  color: #cbd5e1;
+}
+
+.mlt-modal.mlt-dark .mlt-icon-btn:hover,
+.mlt-popover.mlt-dark .mlt-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.mlt-modal.mlt-dark .mlt-form-label,
+.mlt-modal.mlt-dark .mlt-label {
+  color: #cbd5e1;
+}
+
+.mlt-modal.mlt-dark .mlt-input,
+.mlt-modal.mlt-dark .mlt-select {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.mlt-modal.mlt-dark .mlt-input:focus,
+.mlt-modal.mlt-dark .mlt-select:focus {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--mlt-primary);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+}
+
+.mlt-modal.mlt-dark .mlt-select option {
+  background: #18181b;
+  color: #ffffff;
+}
+
+.mlt-modal.mlt-dark .mlt-btn-outlined,
+.mlt-modal.mlt-dark .mlt-btn-secondary,
+.mlt-popover.mlt-dark .mlt-btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mlt-modal.mlt-dark .mlt-btn-outlined:hover,
+.mlt-modal.mlt-dark .mlt-btn-secondary:hover,
+.mlt-popover.mlt-dark .mlt-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.mlt-modal.mlt-dark .mlt-slider {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Animations */

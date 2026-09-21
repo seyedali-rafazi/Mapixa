@@ -2,17 +2,25 @@ import { useState, useEffect, useCallback, type FC } from "react";
 import { useMap, Popup } from "react-map-gl/maplibre";
 import { CopyIcon } from "../ui/Icons";
 import { copyToClipboard } from "../../utils/exportUtils";
+import { isDarkColor } from "../../utils/colorUtils";
 import { toast } from "sonner";
 
 export interface CoordinateDisplayProps {
   precision?: number;
   showCopyButton?: boolean;
+  backgroundColor?: string;
+  style?: React.CSSProperties;
+  className?: string;
 }
 
 export const CoordinateDisplay: FC<CoordinateDisplayProps> = ({
   precision = 5,
   showCopyButton = true,
+  backgroundColor,
+  style,
+  className = "",
 }) => {
+  const isDark = isDarkColor(backgroundColor);
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
 
@@ -108,13 +116,15 @@ export const CoordinateDisplay: FC<CoordinateDisplayProps> = ({
       )}
 
       <div
-        className="mlt-panel"
+        className={`mlt-panel mlt-coordinate-display ${isDark ? "mlt-dark" : ""} ${className}`.trim()}
         style={{
           display: "flex",
           alignItems: "center",
           padding: "6px 12px",
           gap: "12px",
           minWidth: "240px",
+          ...(backgroundColor ? { background: backgroundColor } : {}),
+          ...style,
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>

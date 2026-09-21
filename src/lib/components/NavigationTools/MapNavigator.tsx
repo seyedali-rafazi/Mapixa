@@ -9,16 +9,24 @@ import {
   BoxZoomIcon,
 } from "../ui/Icons";
 import { toast } from "sonner";
+import { isDarkColor } from "../../utils/colorUtils";
 
 export interface MapNavigatorProps {
   homeCenter?: [number, number];
   homeZoom?: number;
+  backgroundColor?: string;
+  style?: React.CSSProperties;
+  className?: string;
 }
 
 export const MapNavigator: FC<MapNavigatorProps> = ({
   homeCenter = [51.389, 35.6892],
   homeZoom = 11,
+  backgroundColor,
+  style,
+  className = "",
 }) => {
+  const isDark = isDarkColor(backgroundColor);
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
 
@@ -94,7 +102,7 @@ export const MapNavigator: FC<MapNavigatorProps> = ({
 
   return (
     <div
-      className="mlt-panel"
+      className={`mlt-panel mlt-navigator ${isDark ? "mlt-dark" : ""} ${className}`.trim()}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -102,6 +110,8 @@ export const MapNavigator: FC<MapNavigatorProps> = ({
         padding: "4px",
         gap: "3px",
         width: "fit-content",
+        ...(backgroundColor ? { background: backgroundColor } : {}),
+        ...style,
       }}
     >
       <button

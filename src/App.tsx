@@ -77,6 +77,7 @@ export function App() {
           extraActions={extraActions}
           onDrawEnd={handleDrawEnd}
           visibility={{ polyine: true, circle: false }}
+          color="#000"
         />
       </Map>
     </div>

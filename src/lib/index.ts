@@ -53,6 +53,7 @@ export type { MapNavigatorProps } from "./components/NavigationTools/MapNavigato
 export { CoordinateDisplay } from "./components/NavigationTools/CoordinateDisplay";
 export type { CoordinateDisplayProps } from "./components/NavigationTools/CoordinateDisplay";
 export { MapViewControl } from "./components/NavigationTools/MapViewControl";
+export type { MapViewControlProps } from "./components/NavigationTools/MapViewControl";
 export { MapFlatViewEnforcer } from "./components/NavigationTools/MapFlatViewEnforcer";
 export { MapResizeHandler } from "./components/NavigationTools/MapResizeHandler";
 
@@ -126,6 +127,8 @@ export {
   getMapToolButtonSx,
   getMapToolAccordionButtonSx,
 } from "./utils/mapToolButtonStyles";
+
+export { isDarkColor } from "./utils/colorUtils";
 
 // UI Components & Icons
 export { Modal } from "./components/ui/Modal";

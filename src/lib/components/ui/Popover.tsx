@@ -1,5 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { isDarkColor } from "../../utils/colorUtils";
+import { useMapTool } from "../../context/MapToolContext";
 
 export interface PopoverProps {
   open: boolean;
@@ -7,6 +9,9 @@ export interface PopoverProps {
   onClose: () => void;
   children: ReactNode;
   width?: number;
+  backgroundColor?: string;
+  style?: React.CSSProperties;
+  className?: string;
 }
 
 export const Popover = ({
@@ -15,8 +20,14 @@ export const Popover = ({
   onClose,
   children,
   width = 240,
+  backgroundColor,
+  style,
+  className = "",
 }: PopoverProps) => {
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const { popoverBackground, popoverStyle, themeColor } = useMapTool();
+  const effectiveBg = backgroundColor ?? popoverBackground ?? themeColor;
+  const isDark = isDarkColor(effectiveBg);
 
   useEffect(() => {
     if (!open) return;
@@ -46,12 +57,15 @@ export const Popover = ({
   return createPortal(
     <div
       ref={popoverRef}
-      className="mlt-popover"
+      className={`mlt-popover ${isDark ? "mlt-dark" : ""} ${className}`.trim()}
       style={{
         position: "fixed",
         top: Math.max(10, top),
         left: Math.max(10, left),
         width,
+        ...(effectiveBg ? { background: effectiveBg } : {}),
+        ...popoverStyle,
+        ...style,
       }}
     >
       {children}

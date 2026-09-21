@@ -104,6 +104,66 @@ export interface MapLibreToolsProps {
   showFullscreen?: boolean;
   enforceFlatView?: boolean;
   autoResize?: boolean;
+
+  /**
+   * Background color or CSS value for accordion toolbars (Draw & Extra tools).
+   * Example: "#1e1e1e", "rgba(255, 255, 255, 0.9)", "linear-gradient(...)"
+   */
+  accordionBackground?: string;
+  accordionBg?: string;
+  accordionStyle?: React.CSSProperties;
+
+  /**
+   * Background color or CSS value for the coordinate display panel.
+   */
+  coordinateBackground?: string;
+  coordinateBg?: string;
+  coordinateStyle?: React.CSSProperties;
+
+  /**
+   * Background color or CSS value for the map navigator controls.
+   */
+  navigatorBackground?: string;
+  navigatorBg?: string;
+  navigatorStyle?: React.CSSProperties;
+
+  /**
+   * Background color or CSS value for the fullscreen view control.
+   */
+  fullscreenBackground?: string;
+  fullscreenBg?: string;
+  fullscreenStyle?: React.CSSProperties;
+
+  /**
+   * Background color or CSS value for tool modal dialogs.
+   */
+  modalBackground?: string;
+  modalBg?: string;
+  modalStyle?: React.CSSProperties;
+
+  /**
+   * Background color or CSS value for floating popovers (e.g. layer visibility).
+   */
+  popoverBackground?: string;
+  popoverBg?: string;
+  popoverStyle?: React.CSSProperties;
+
+  /**
+   * Shared background color applied to all controls and modals.
+   */
+  color?: string;
+
+  /**
+   * Map of custom background colors for controls and modals.
+   */
+  colors?: {
+    accordion?: string;
+    coordinate?: string;
+    navigator?: string;
+    fullscreen?: string;
+    modal?: string;
+    popover?: string;
+  };
 }
 
 export const MapLibreTools: FC<MapLibreToolsProps> = ({
@@ -130,7 +190,34 @@ export const MapLibreTools: FC<MapLibreToolsProps> = ({
   showFullscreen = true,
   enforceFlatView = true,
   autoResize = true,
+  accordionBackground,
+  accordionBg,
+  accordionStyle,
+  coordinateBackground,
+  coordinateBg,
+  coordinateStyle,
+  navigatorBackground,
+  navigatorBg,
+  navigatorStyle,
+  fullscreenBackground,
+  fullscreenBg,
+  fullscreenStyle,
+  modalBackground,
+  modalBg,
+  modalStyle,
+  popoverBackground,
+  popoverBg,
+  popoverStyle,
+  color,
+  colors,
 }) => {
+  const effectiveAccordionBg = colors?.accordion ?? accordionBackground ?? accordionBg ?? color;
+  const effectiveCoordinateBg = colors?.coordinate ?? coordinateBackground ?? coordinateBg ?? color;
+  const effectiveNavigatorBg = colors?.navigator ?? navigatorBackground ?? navigatorBg ?? color;
+  const effectiveFullscreenBg = colors?.fullscreen ?? fullscreenBackground ?? fullscreenBg ?? color;
+  const effectiveModalBg = colors?.modal ?? modalBackground ?? modalBg ?? color;
+  const effectivePopoverBg = colors?.popover ?? popoverBackground ?? popoverBg ?? color;
+
   return (
     <MapToolProvider
       toolsConfig={toolsConfig}
@@ -140,6 +227,11 @@ export const MapLibreTools: FC<MapLibreToolsProps> = ({
       onDrawStart={onDrawStart}
       onDrawChange={onDrawChange}
       onDrawDelete={onDrawDelete}
+      themeColor={color}
+      modalBackground={effectiveModalBg}
+      modalStyle={modalStyle}
+      popoverBackground={effectivePopoverBg}
+      popoverStyle={popoverStyle}
     >
       <LayerVisibilityProvider
         visibility={visibility}
@@ -153,7 +245,10 @@ export const MapLibreTools: FC<MapLibreToolsProps> = ({
           {/* Navigator Box */}
           {showNavigator && (
             <MapControlBox position={navigatorPosition}>
-              <MapNavigator />
+              <MapNavigator
+                backgroundColor={effectiveNavigatorBg}
+                style={navigatorStyle}
+              />
             </MapControlBox>
           )}
 
@@ -170,12 +265,16 @@ export const MapLibreTools: FC<MapLibreToolsProps> = ({
                 <MapDrawTools
                   config={toolsConfig}
                   extraActions={extraActions}
+                  accordionBackground={effectiveAccordionBg}
+                  style={accordionStyle}
                 />
               )}
               {showExtraTools && (
                 <ExtraMapTools
                   config={toolsConfig}
                   extraActions={extraActions}
+                  accordionBackground={effectiveAccordionBg}
+                  style={accordionStyle}
                 />
               )}
             </div>
@@ -184,14 +283,20 @@ export const MapLibreTools: FC<MapLibreToolsProps> = ({
           {/* Coordinates readout */}
           {showCoordinates && (
             <MapControlBox position={coordinatePosition}>
-              <CoordinateDisplay />
+              <CoordinateDisplay
+                backgroundColor={effectiveCoordinateBg}
+                style={coordinateStyle}
+              />
             </MapControlBox>
           )}
 
           {/* View / Fullscreen */}
           {showFullscreen && (
             <MapControlBox position={viewControlPosition}>
-              <MapViewControl />
+              <MapViewControl
+                backgroundColor={effectiveFullscreenBg}
+                style={fullscreenStyle}
+              />
             </MapControlBox>
           )}
 
