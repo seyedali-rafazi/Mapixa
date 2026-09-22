@@ -15,9 +15,11 @@
   --mlt-danger-hover: #d72e24;
   --mlt-radius: 12px;
   --mlt-radius-sm: 8px;
-  --mlt-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mlt-font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
   --mlt-accordion-bg: var(--mlt-bg-glass);
-  --mlt-coordinate-bg: var(--mlt-bg-glass);
+  --mlt-coordinate-bg: #313334;
   --mlt-navigator-bg: var(--mlt-bg-glass);
   --mlt-fullscreen-bg: var(--mlt-bg-glass);
   --mlt-modal-bg: var(--mlt-bg-glass);
@@ -39,8 +41,141 @@
   box-sizing: border-box;
 }
 
+/* Coordinate Display Capsule (Compact) */
 .mlt-coordinate-display {
-  background: var(--mlt-coordinate-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  border-radius: 9999px;
+  background: var(--mlt-coordinate-bg, #313334);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 10px;
+  gap: 9px;
+  box-sizing: border-box;
+  user-select: none;
+  font-family: var(--mlt-font);
+  color: #e2e8f0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  width: 300px;
+}
+
+.mlt-coord-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9da1a6;
+  line-height: 1;
+  letter-spacing: 0.2px;
+  user-select: none;
+  width: 24px;
+  min-width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.mlt-coord-value {
+  font-size: 11px;
+  font-weight: 500;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: 0.2px;
+  line-height: 1;
+  user-select: all;
+  width: 66px;
+  min-width: 66px;
+  max-width: 66px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mlt-coord-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 2px;
+  margin: 0;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: #9da1a6;
+  border-radius: 3px;
+  transition:
+    color 0.15s ease,
+    transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mlt-coord-copy-btn:hover {
+  color: #ffffff;
+  transform: scale(1.15);
+}
+
+.mlt-coord-copy-btn:active {
+  transform: scale(0.92);
+}
+
+.mlt-coord-copy-btn.mlt-coord-copied {
+  color: #4ade80;
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 5px rgba(74, 222, 128, 0.7));
+}
+
+.mlt-coord-copy-btn.mlt-coord-picking {
+  color: #60a5fa;
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 5px rgba(96, 165, 250, 0.7));
+  animation: mlt-coord-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes mlt-coord-pulse {
+  0%, 100% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 4px rgba(96, 165, 250, 0.5));
+  }
+  50% {
+    transform: scale(1.22);
+    filter: drop-shadow(0 0 7px rgba(96, 165, 250, 0.85));
+  }
+}
+
+/* Light theme support when a light color is provided in props */
+.mlt-coordinate-display.mlt-light {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  color: #0f172a;
+}
+
+.mlt-coordinate-display.mlt-light .mlt-coord-label {
+  color: #64748b;
+}
+
+.mlt-coordinate-display.mlt-light .mlt-coord-value {
+  color: #0f172a;
+}
+
+.mlt-coordinate-display.mlt-light .mlt-coord-copy-btn {
+  color: #64748b;
+}
+
+.mlt-coordinate-display.mlt-light .mlt-coord-copy-btn:hover {
+  color: #0f172a;
 }
 
 .mlt-navigator {
@@ -240,9 +375,10 @@
   border: 1px solid var(--mlt-border-glass);
   box-shadow: var(--mlt-shadow);
   box-sizing: border-box;
-  transition: box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mlt-expandable-box:hover {
@@ -267,9 +403,10 @@
   background: transparent;
   cursor: pointer;
   color: var(--mlt-text-secondary);
-  transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.15s ease;
+  transition:
+    color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.15s ease;
   outline: none;
   flex-shrink: 0;
 }
@@ -299,9 +436,10 @@
 .mlt-accordion-body {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-              visibility 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0;
   width: 100%;
   pointer-events: none;
@@ -324,8 +462,9 @@
   padding: 0 4px;
   box-sizing: border-box;
   transform: translateY(-8px);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mlt-accordion-body.expanded .mlt-accordion-inner {
@@ -334,9 +473,10 @@
 }
 
 .mlt-accordion-collapse-btn {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              background-color 0.2s ease,
-              color 0.2s ease;
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .mlt-accordion-collapse-btn:hover {
@@ -588,13 +728,23 @@
 
 /* Animations */
 @keyframes mlt-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes mlt-scale-up {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Basemap & Overlay Switcher Styles */
@@ -620,4 +770,3 @@
   border-color: rgba(59, 130, 246, 0.5) !important;
   background-color: rgba(59, 130, 246, 0.12) !important;
 }
-
