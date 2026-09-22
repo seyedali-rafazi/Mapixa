@@ -98,7 +98,7 @@ export function getLineIntersection(
 ): [number, number] | null {
   const denom =
     (p4[1] - p3[1]) * (p2[0] - p1[0]) - (p4[0] - p3[0]) * (p2[1] - p1[1]);
-  if (denom === 0) return null;
+  if (Math.abs(denom) < 1e-12) return null;
 
   const ua =
     ((p4[0] - p3[0]) * (p1[1] - p3[1]) - (p4[1] - p3[1]) * (p1[0] - p3[0])) /
@@ -107,8 +107,94 @@ export function getLineIntersection(
     ((p2[0] - p1[0]) * (p1[1] - p3[1]) - (p2[1] - p1[1]) * (p1[0] - p3[0])) /
     denom;
 
-  if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
-    return [p1[0] + ua * (p2[0] - p1[0]), p1[1] + ua * (p2[1] - p1[1])];
+  const EPS = 1e-9;
+  if (ua >= -EPS && ua <= 1 + EPS && ub >= -EPS && ub <= 1 + EPS) {
+    const clampedUa = Math.max(0, Math.min(1, ua));
+    return [
+      p1[0] + clampedUa * (p2[0] - p1[0]),
+      p1[1] + clampedUa * (p2[1] - p1[1]),
+    ];
   }
   return null;
 }
+
+/**
+ * Find all intersection points between two polylines
+ */
+export function findLineIntersections(
+  line1: number[][],
+  line2: number[][]
+): [number, number][] {
+  if (!line1 || !line2 || line1.length < 2 || line2.length < 2) return [];
+  const results: [number, number][] = [];
+
+  for (let i = 0; i < line1.length - 1; i++) {
+    const p1 = line1[i] as [number, number];
+    const p2 = line1[i + 1] as [number, number];
+
+    for (let j = 0; j < line2.length - 1; j++) {
+      const p3 = line2[j] as [number, number];
+      const p4 = line2[j + 1] as [number, number];
+
+      const pt = getLineIntersection(p1, p2, p3, p4);
+      if (pt) {
+        const rounded: [number, number] = [
+          parseFloat(pt[0].toFixed(6)),
+          parseFloat(pt[1].toFixed(6)),
+        ];
+        if (
+          !results.some(
+            (existing) =>
+              Math.hypot(existing[0] - rounded[0], existing[1] - rounded[1]) < 1e-5
+          )
+        ) {
+          results.push(rounded);
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Find all self-intersection points within a single polyline
+ */
+export function findPolylineSelfIntersections(
+  line: number[][]
+): [number, number][] {
+  if (!line || line.length < 4) return [];
+  const results: [number, number][] = [];
+
+  for (let i = 0; i < line.length - 1; i++) {
+    const p1 = line[i] as [number, number];
+    const p2 = line[i + 1] as [number, number];
+
+    // Skip adjacent segments since they share a vertex
+    for (let j = i + 2; j < line.length - 1; j++) {
+      if (i === 0 && j === line.length - 2) continue;
+
+      const p3 = line[j] as [number, number];
+      const p4 = line[j + 1] as [number, number];
+
+      const pt = getLineIntersection(p1, p2, p3, p4);
+      if (pt) {
+        const rounded: [number, number] = [
+          parseFloat(pt[0].toFixed(6)),
+          parseFloat(pt[1].toFixed(6)),
+        ];
+        if (
+          !results.some(
+            (existing) =>
+              Math.hypot(existing[0] - rounded[0], existing[1] - rounded[1]) < 1e-5
+          )
+        ) {
+          results.push(rounded);
+        }
+      }
+    }
+  }
+
+  return results;
+}
+

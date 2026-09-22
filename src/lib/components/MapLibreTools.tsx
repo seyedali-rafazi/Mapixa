@@ -3,10 +3,13 @@ import type { ControlPosition } from "react-map-gl/maplibre";
 import "../styles/map-tools.css";
 import { MapToolProvider } from "../context/MapToolContext";
 import { LayerVisibilityProvider } from "../context/LayerVisibilityContext";
+import { DrawLayersProvider } from "../context/DrawLayersContext";
 import { AccordionGroupProvider } from "../context/AccordionGroupContext";
 import ToolbarContext from "../context/ToolbarContext";
 import MapControlBox from "./MapControlBox";
 import MapDrawTools from "./DrawTools/MapDrawTools";
+import DrawEraseControl from "./DrawTools/DrawEraseControl";
+import DrawLayerManagerControl from "./DrawTools/DrawLayerManagerControl";
 import ExtraMapTools from "./ExtraTools/ExtraMapTools";
 import MapNavigator from "./NavigationTools/MapNavigator";
 import CoordinateDisplay from "./NavigationTools/CoordinateDisplay";
@@ -258,77 +261,79 @@ const MapLibreToolsBase: FC<MapLibreToolsProps> = ({
         initialVisibility={initialVisibility}
         onVisibilityChange={onVisibilityChange}
       >
-        <AccordionGroupProvider>
-          <ToolbarContext.Provider value={{ toolbarElement, setToolbarElement }}>
-            {enforceFlatView && <MapFlatViewEnforcer />}
-            {autoResize && <MapResizeHandler />}
+        <DrawLayersProvider>
+          <AccordionGroupProvider>
+            <ToolbarContext.Provider value={{ toolbarElement, setToolbarElement }}>
+              {enforceFlatView && <MapFlatViewEnforcer />}
+              {autoResize && <MapResizeHandler />}
 
-            {/* Navigator Box */}
-            {showNavigator && (
-              <MapControlBox position={navigatorPosition}>
-                <MapNavigator
-                  backgroundColor={effectiveNavigatorBg}
-                  style={navigatorStyle}
-                  showBasemapSwitcher={showBasemapSwitcher}
-                  basemapLayers={basemapLayers}
-                  basemapOverlays={basemapOverlays}
-                  basemapSwitcherProps={basemapSwitcherProps}
-                />
-              </MapControlBox>
-            )}
-
-            {/* Main Drawing & Extra Tools Toolbar with pure CSS flex gap */}
-            <MapControlBox position={toolbarPosition}>
-              <div
-                ref={setToolbarElement as any}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: `${toolbarGap}px`,
-                }}
-              >
-                {showDrawTools && (
-                  <MapDrawTools
-                    config={toolsConfig}
-                    extraActions={extraActions}
-                    accordionBackground={effectiveAccordionBg}
-                    style={accordionStyle}
+              {/* Navigator Box */}
+              {showNavigator && (
+                <MapControlBox position={navigatorPosition}>
+                  <MapNavigator
+                    backgroundColor={effectiveNavigatorBg}
+                    style={navigatorStyle}
+                    showBasemapSwitcher={showBasemapSwitcher}
+                    basemapLayers={basemapLayers}
+                    basemapOverlays={basemapOverlays}
+                    basemapSwitcherProps={basemapSwitcherProps}
                   />
-                )}
-                {showExtraTools && (
-                  <ExtraMapTools
-                    config={toolsConfig}
-                    extraActions={extraActions}
-                    accordionBackground={effectiveAccordionBg}
-                    style={accordionStyle}
+                </MapControlBox>
+              )}
+
+              {/* Main Drawing & Extra Tools Toolbar with pure CSS flex gap */}
+              <MapControlBox position={toolbarPosition}>
+                <div
+                  ref={setToolbarElement as any}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: `${toolbarGap}px`,
+                  }}
+                >
+                  {showDrawTools && (
+                    <MapDrawTools
+                      config={toolsConfig}
+                      extraActions={extraActions}
+                      accordionBackground={effectiveAccordionBg}
+                      style={accordionStyle}
+                    />
+                  )}
+                  {showExtraTools && (
+                    <ExtraMapTools
+                      config={toolsConfig}
+                      extraActions={extraActions}
+                      accordionBackground={effectiveAccordionBg}
+                      style={accordionStyle}
+                    />
+                  )}
+                </div>
+              </MapControlBox>
+
+              {/* Coordinates readout */}
+              {showCoordinates && (
+                <MapControlBox position={coordinatePosition}>
+                  <CoordinateDisplay
+                    backgroundColor={effectiveCoordinateBg}
+                    style={coordinateStyle}
                   />
-                )}
-              </div>
-            </MapControlBox>
+                </MapControlBox>
+              )}
 
-            {/* Coordinates readout */}
-            {showCoordinates && (
-              <MapControlBox position={coordinatePosition}>
-                <CoordinateDisplay
-                  backgroundColor={effectiveCoordinateBg}
-                  style={coordinateStyle}
-                />
-              </MapControlBox>
-            )}
+              {/* View / Fullscreen */}
+              {showFullscreen && (
+                <MapControlBox position={viewControlPosition}>
+                  <MapViewControl
+                    backgroundColor={effectiveFullscreenBg}
+                    style={fullscreenStyle}
+                  />
+                </MapControlBox>
+              )}
 
-            {/* View / Fullscreen */}
-            {showFullscreen && (
-              <MapControlBox position={viewControlPosition}>
-                <MapViewControl
-                  backgroundColor={effectiveFullscreenBg}
-                  style={fullscreenStyle}
-                />
-              </MapControlBox>
-            )}
-
-            {children}
-          </ToolbarContext.Provider>
-        </AccordionGroupProvider>
+              {children}
+            </ToolbarContext.Provider>
+          </AccordionGroupProvider>
+        </DrawLayersProvider>
       </LayerVisibilityProvider>
     </MapToolProvider>
   );
@@ -345,6 +350,8 @@ export type MapLibreToolsComponent = FC<MapLibreToolsProps> & {
   Coordinates: typeof CoordinateDisplay;
   Fullscreen: typeof MapViewControl;
   BasemapSwitcher: typeof BasemapSwitcher;
+  DrawLayersManager: typeof DrawLayerManagerControl;
+  DrawErase: typeof DrawEraseControl;
 };
 
 export const MapLibreTools = MapLibreToolsBase as unknown as MapLibreToolsComponent;
@@ -357,5 +364,7 @@ MapLibreTools.Navigator = MapNavigator;
 MapLibreTools.Coordinates = CoordinateDisplay;
 MapLibreTools.Fullscreen = MapViewControl;
 MapLibreTools.BasemapSwitcher = BasemapSwitcher;
+MapLibreTools.DrawLayersManager = DrawLayerManagerControl;
+MapLibreTools.DrawErase = DrawEraseControl;
 
 export default MapLibreTools;

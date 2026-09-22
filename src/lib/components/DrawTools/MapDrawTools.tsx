@@ -8,6 +8,8 @@ import DrawRectangleControl from "./DrawRectangleControl";
 import DrawPolygonControl from "./DrawPolygonControl";
 import DrawCircleControl from "./DrawCircleControl";
 import IntersectionControl from "./IntersectionControl";
+import DrawEraseControl from "./DrawEraseControl";
+import DrawLayerManagerControl from "./DrawLayerManagerControl";
 import type { ToolsConfiguration, ExtraActionItem } from "../../types/tools";
 
 export interface MapDrawToolsProps {
@@ -74,11 +76,18 @@ export const MapDrawTools: FC<MapDrawToolsProps> = ({
           extraActions={extraActions}
         />
       )}
-      {config?.line?.visible !== false && (
+      {(config?.intersection?.visible ?? config?.line?.visible) !== false && (
         <IntersectionControl
-          config={config?.line}
+          config={config?.intersection ?? config?.line}
           extraActions={extraActions}
         />
+      )}
+      <div className="mlt-divider" />
+      {config?.erase?.visible !== false && (
+        <DrawEraseControl config={config?.erase} />
+      )}
+      {config?.layerManager?.visible !== false && (
+        <DrawLayerManagerControl config={config?.layerManager} />
       )}
     </ExpandableBox>
   );

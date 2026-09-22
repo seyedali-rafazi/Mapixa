@@ -649,6 +649,10 @@
   color: var(--mlt-text);
   box-sizing: border-box;
   animation: mlt-fade-in 0.15s ease-out;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 24px);
+  overflow: hidden;
 }
 
 /* Dark Theme Variant for Modals and Popovers */
@@ -769,4 +773,39 @@
 .mlt-popover.mlt-dark .mlt-overlay-row.active {
   border-color: rgba(59, 130, 246, 0.5) !important;
   background-color: rgba(59, 130, 246, 0.12) !important;
+}
+
+/* Draw Layers Manager & Erase Styles */
+.mlt-draw-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background-color: var(--mlt-primary, #007aff);
+  color: #fff;
+  border-radius: 9999px;
+  min-width: 15px;
+  height: 15px;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.mlt-popover.mlt-dark .mlt-draw-layer-item {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+.mlt-popover.mlt-dark .mlt-draw-layer-item:hover {
+  background-color: rgba(255, 255, 255, 0.09);
+}
+
+.mlt-popover.mlt-dark .mlt-draw-layer-item.hidden {
+  opacity: 0.45;
+  background-color: rgba(255, 255, 255, 0.02);
 }

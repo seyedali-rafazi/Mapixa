@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, type FC } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import { useExclusiveTool, useMapTool } from "../../context/MapToolContext";
 import { useLayerVisibility } from "../../context/LayerVisibilityContext";
+import { useDrawLayers } from "../../context/DrawLayersContext";
 import { calculateLineDistanceKm } from "../../utils/geoCalculations";
 import { copyToClipboard } from "../../utils/exportUtils";
 import { Modal } from "../ui/Modal";
@@ -42,6 +43,9 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
   const { onDrawEnd, onDrawDelete, afterDrawMode, extraActions: contextExtraActions } =
     useMapTool();
   const { isToolVisible } = useLayerVisibility();
+  const { addDrawnLayer, removeDrawnLayer, drawnLayers, isEraserMode } = useDrawLayers();
+  const isEraserModeRef = useRef(isEraserMode);
+  isEraserModeRef.current = isEraserMode;
 
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
@@ -54,10 +58,37 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
   const linesRef = useRef<LineItem[]>([]);
   const isDrawingLineRef = useRef(isDrawingLine);
 
+  useEffect(() => {
+    const currentLines = drawnLayers
+      .filter((l) => l.tool === "line")
+      .map(
+        (l) =>
+          ({
+            id: l.id,
+            name: l.name,
+            coordinates: l.coordinates || l.properties?.coordinates || [],
+            lineColor: l.properties?.color || l.properties?.lineColor || "#007aff",
+            lineWidth: l.properties?.width || l.properties?.lineWidth || 3,
+            opacity: (l.properties?.opacity ?? 1) * 100,
+            distanceKm: l.metrics?.distanceKm,
+          }) as LineItem
+      );
+    linesRef.current = currentLines;
+  }, [drawnLayers]);
+
   const mergedActions = propExtraActions || config?.extraActions || contextExtraActions;
 
+  const isMapReady = useCallback(() => {
+    if (!map) return false;
+    try {
+      return Boolean(map.getStyle() && map.getStyle().layers);
+    } catch {
+      return false;
+    }
+  }, [map]);
+
   const initMapLayers = useCallback(() => {
-    if (!map || !map.isStyleLoaded()) return;
+    if (!isMapReady()) return;
 
     const completedFeatures = linesRef.current.map((line) => ({
       type: "Feature" as const,
@@ -120,10 +151,10 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
         },
       });
     }
-  }, [map, isToolVisible]);
+  }, [map, isToolVisible, isMapReady]);
 
   const updateDraftLineSource = useCallback(
-    (liveCoords?: number[][]) => {
+    (liveCoords?: number[][], customColor?: string, customWidth?: number) => {
       if (!map) return;
       initMapLayers();
 
@@ -132,18 +163,28 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
 
       const coordsToDraw = liveCoords || currentLineCoordsRef.current;
 
-      if (coordsToDraw.length > 1) {
+      if (coordsToDraw && coordsToDraw.length > 1) {
         source.setData({
           type: "FeatureCollection",
           features: [
             {
               type: "Feature",
               geometry: { type: "LineString", coordinates: coordsToDraw },
+              properties: {
+                color: customColor || "#ff9500",
+                width: customWidth || 4,
+              },
             },
           ],
         });
       } else {
         source.setData({ type: "FeatureCollection", features: [] });
+      }
+
+      try {
+        map.triggerRepaint();
+      } catch {
+        // ignore
       }
     },
     [map, initMapLayers]
@@ -158,17 +199,7 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
 
     source.setData({
       type: "FeatureCollection",
-      features: linesRef.current.map((line) => ({
-        type: "Feature",
-        geometry: { type: "LineString", coordinates: line.coordinates },
-        properties: {
-          id: line.id,
-          name: line.name,
-          color: line.lineColor,
-          width: line.lineWidth,
-          opacity: line.opacity / 100,
-        },
-      })),
+      features: [],
     });
   }, [map, initMapLayers]);
 
@@ -185,8 +216,29 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
       };
 
       if (afterDrawMode === "auto-save") {
-        linesRef.current.push(newLine);
+        addDrawnLayer({
+          id: newLine.id,
+          name: newLine.name,
+          tool: "line",
+          visible: true,
+          coordinates: newLine.coordinates,
+          metrics: { distanceKm: newLine.distanceKm },
+          properties: {
+            id: newLine.id,
+            name: newLine.name,
+            color: newLine.lineColor,
+            width: newLine.lineWidth,
+            opacity: newLine.opacity / 100,
+          },
+          feature: {
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: newLine.coordinates },
+            properties: { id: newLine.id, name: newLine.name },
+          },
+          createdAt: Date.now(),
+        });
         updateCompletedLinesSource();
+        updateDraftLineSource([]);
         onDrawEnd?.({
           id: newLine.id,
           tool: "line",
@@ -203,15 +255,16 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
       } else {
         setLineData(newLine);
         setOpen(true);
+        // Keep draft line visible on map while modal is open
+        updateDraftLineSource(newLine.coordinates, newLine.lineColor, newLine.lineWidth);
       }
 
       currentLineCoordsRef.current = [];
-      updateDraftLineSource();
       setIsDrawingLine(false);
       setHasEnoughPoints(false);
     } else {
       currentLineCoordsRef.current = [];
-      updateDraftLineSource();
+      updateDraftLineSource([]);
       setIsDrawingLine(false);
       setHasEnoughPoints(false);
     }
@@ -221,6 +274,7 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
     updateCompletedLinesSource,
     afterDrawMode,
     onDrawEnd,
+    addDrawnLayer,
   ]);
 
   useEffect(() => {
@@ -231,10 +285,12 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
 
     if (!isDrawingLine) {
       currentLineCoordsRef.current = [];
-      updateDraftLineSource();
       setHasEnoughPoints(false);
+      if (!open) {
+        updateDraftLineSource([]);
+      }
     }
-  }, [isDrawingLine, map, updateDraftLineSource]);
+  }, [isDrawingLine, map, updateDraftLineSource, open]);
 
   useEffect(() => {
     if (!map) return;
@@ -242,25 +298,34 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
     const onStyleLoad = () => {
       initMapLayers();
       updateCompletedLinesSource();
+      updateDraftLineSource([]);
     };
 
-    if (map.isStyleLoaded()) initMapLayers();
+    if (isMapReady()) initMapLayers();
     map.on("style.load", onStyleLoad);
+    map.on("load", onStyleLoad);
 
     const handleMapClick = (e: any) => {
-      if (!isDrawingLineRef.current && map.getLayer("custom-lines-layer")) {
+      if (isEraserModeRef.current) return;
+
+      const layersToCheck = [
+        map.getLayer("custom-draw-lines-layer") ? "custom-draw-lines-layer" : null,
+        map.getLayer("custom-lines-layer") ? "custom-lines-layer" : null,
+      ].filter(Boolean) as string[];
+
+      if (!isDrawingLineRef.current && layersToCheck.length > 0) {
         const features = map.queryRenderedFeatures(e.point, {
-          layers: ["custom-lines-layer"],
+          layers: layersToCheck,
         });
         if (features.length > 0) {
-          e.preventDefault();
           const clickedId = features[0].properties?.id;
           const line = linesRef.current.find((l) => l.id === clickedId);
           if (line) {
+            e.preventDefault();
             setLineData(line);
             setOpen(true);
+            return;
           }
-          return;
         }
       }
 
@@ -297,6 +362,7 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
 
     return () => {
       map.off("style.load", onStyleLoad);
+      map.off("load", onStyleLoad);
       map.off("click", handleMapClick);
       map.off("mousemove", handleMouseMove);
       map.off("dblclick", handleDblClick);
@@ -307,19 +373,49 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
     updateCompletedLinesSource,
     updateDraftLineSource,
     handleFinishDrawing,
+    isMapReady,
   ]);
 
+  const handleCloseModal = () => {
+    setOpen(false);
+    updateDraftLineSource([]);
+  };
+
+  const handlePropertyChange = (updates: Partial<LineItem>) => {
+    setLineData((prev) => {
+      const next = { ...prev, ...updates };
+      if (!drawnLayers.some((l) => l.id === next.id)) {
+        updateDraftLineSource(next.coordinates, next.lineColor, next.lineWidth);
+      }
+      return next;
+    });
+  };
+
   const handleSave = () => {
-    const existingIndex = linesRef.current.findIndex(
-      (l) => l.id === lineData.id
-    );
-    if (existingIndex >= 0) {
-      linesRef.current[existingIndex] = lineData;
-    } else {
-      linesRef.current.push(lineData);
-    }
+    addDrawnLayer({
+      id: lineData.id,
+      name: lineData.name,
+      tool: "line",
+      visible: true,
+      coordinates: lineData.coordinates,
+      metrics: { distanceKm: lineData.distanceKm },
+      properties: {
+        id: lineData.id,
+        name: lineData.name,
+        color: lineData.lineColor,
+        width: lineData.lineWidth,
+        opacity: lineData.opacity / 100,
+      },
+      feature: {
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: lineData.coordinates },
+        properties: { id: lineData.id, name: lineData.name },
+      },
+      createdAt: Date.now(),
+    });
 
     updateCompletedLinesSource();
+    updateDraftLineSource([]);
 
     onDrawEnd?.({
       id: lineData.id,
@@ -339,8 +435,9 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
   };
 
   const handleDelete = () => {
-    linesRef.current = linesRef.current.filter((l) => l.id !== lineData.id);
+    removeDrawnLayer(lineData.id);
     updateCompletedLinesSource();
+    updateDraftLineSource([]);
     onDrawDelete?.({ id: lineData.id, tool: "line" });
     setOpen(false);
     toast.info("Line deleted");
@@ -382,7 +479,7 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleCloseModal}
         title={lineData.id ? "Edit Line" : "New Line"}
         footer={
           <div className="mlt-modal-footer">
@@ -399,7 +496,7 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
             <button
               type="button"
               className="mlt-btn mlt-btn-secondary"
-              onClick={() => setOpen(false)}
+              onClick={handleCloseModal}
             >
               Cancel
             </button>
@@ -419,9 +516,7 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
             type="text"
             className="mlt-input"
             value={lineData.name}
-            onChange={(e) =>
-              setLineData((prev) => ({ ...prev, name: e.target.value }))
-            }
+            onChange={(e) => handlePropertyChange({ name: e.target.value })}
             placeholder="e.g. Hiking Trail"
           />
         </div>
@@ -439,9 +534,7 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
               type="color"
               className="mlt-color-picker"
               value={lineData.lineColor}
-              onChange={(e) =>
-                setLineData((prev) => ({ ...prev, lineColor: e.target.value }))
-              }
+              onChange={(e) => handlePropertyChange({ lineColor: e.target.value })}
             />
           </div>
 
@@ -456,10 +549,9 @@ export const DrawLineControl: FC<DrawLineControlProps> = ({
               max={16}
               value={lineData.lineWidth}
               onChange={(e) =>
-                setLineData((prev) => ({
-                  ...prev,
+                handlePropertyChange({
                   lineWidth: Number(e.target.value),
-                }))
+                })
               }
             />
           </div>

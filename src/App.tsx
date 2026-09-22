@@ -178,7 +178,7 @@ export function App() {
           afterDrawMode="modal"
           extraActions={extraActions}
           onDrawEnd={handleDrawEnd}
-          visibility={{ polyine: true, circle: false }}
+          visibility={{ polyine: true, circle: true }}
           color="#000"
           // Mode 1: Integrated into the Navigation Section (Top-Left)
           showBasemapSwitcher={true}

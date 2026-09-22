@@ -4,6 +4,7 @@ import { PinIcon, TrashIcon, CopyIcon } from "../ui/Icons";
 import Modal from "../ui/Modal";
 import { useExclusiveTool, useMapTool } from "../../context/MapToolContext";
 import { useLayerVisibility } from "../../context/LayerVisibilityContext";
+import { useDrawLayers } from "../../context/DrawLayersContext";
 import { generateMarkerSvg } from "../../utils/generateMarkerSvg";
 import { copyToClipboard } from "../../utils/exportUtils";
 import ExtraActionButtons from "../ExtraActionButtons";
@@ -47,6 +48,9 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
   const { onDrawEnd, onDrawDelete, afterDrawMode, extraActions: contextExtraActions } =
     useMapTool();
   const { isToolVisible } = useLayerVisibility();
+  const { addDrawnLayer, removeDrawnLayer, drawnLayers, isEraserMode } = useDrawLayers();
+  const isEraserModeRef = useRef(isEraserMode);
+  isEraserModeRef.current = isEraserMode;
 
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
@@ -56,8 +60,9 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
 
   const markersRef = useRef<MarkerItem[]>([]);
   const isDrawingRef = useRef(isDrawing);
-
-  const mergedActions = propExtraActions || config?.extraActions || contextExtraActions;
+  isDrawingRef.current = isDrawing;
+  const markerDataRef = useRef(markerData);
+  markerDataRef.current = markerData;
 
   useEffect(() => {
     isDrawingRef.current = isDrawing;
@@ -66,19 +71,52 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
     }
   }, [isDrawing, map]);
 
+  const mergedActions = propExtraActions || config?.extraActions || contextExtraActions;
+
+  const isMapReady = useCallback(() => {
+    if (!map) return false;
+    try {
+      return Boolean(map.getStyle() && map.getStyle().layers);
+    } catch {
+      return false;
+    }
+  }, [map]);
+
   const initMapLayers = useCallback(() => {
-    if (!map || !map.isStyleLoaded()) return;
+    if (!isMapReady()) return;
 
     const currentFeatures = markersRef.current.map((m) => ({
       type: "Feature" as const,
       geometry: { type: "Point" as const, coordinates: [m.lon, m.lat] },
-      properties: { id: m.id, name: m.name, imageId: `marker-img-${m.id}` },
+      properties: {
+        id: m.id,
+        name: m.name,
+        imageId: `marker-img-${m.id}`,
+        markerColor: m.markerColor || "#ff3b30",
+      },
     }));
 
     if (!map.getSource("custom-markers-source")) {
       map.addSource("custom-markers-source", {
         type: "geojson",
         data: { type: "FeatureCollection", features: currentFeatures as any },
+      });
+    }
+
+    if (!map.getLayer("custom-markers-base-circle")) {
+      map.addLayer({
+        id: "custom-markers-base-circle",
+        type: "circle",
+        source: "custom-markers-source",
+        layout: {
+          visibility: isToolVisible("marker") ? "visible" : "none",
+        },
+        paint: {
+          "circle-radius": 7,
+          "circle-color": ["coalesce", ["get", "markerColor"], "#ff3b30"],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
       });
     }
 
@@ -90,11 +128,14 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
         layout: {
           "icon-image": ["get", "imageId"],
           "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
           "icon-anchor": "bottom",
           "text-field": ["get", "name"],
           "text-offset": [0, 0.6],
           "text-anchor": "top",
           "text-size": 13,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
           visibility: isToolVisible("marker") ? "visible" : "none",
         },
         paint: {
@@ -104,7 +145,53 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
         },
       });
     }
-  }, [map, isToolVisible]);
+
+    if (!map.getSource("draft-marker-source")) {
+      map.addSource("draft-marker-source", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+    }
+
+    if (!map.getLayer("draft-marker-base-circle")) {
+      map.addLayer({
+        id: "draft-marker-base-circle",
+        type: "circle",
+        source: "draft-marker-source",
+        paint: {
+          "circle-radius": 8,
+          "circle-color": ["coalesce", ["get", "markerColor"], "#ff3b30"],
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+    }
+
+    if (!map.getLayer("draft-marker-layer")) {
+      map.addLayer({
+        id: "draft-marker-layer",
+        type: "symbol",
+        source: "draft-marker-source",
+        layout: {
+          "icon-image": ["get", "imageId"],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-anchor": "bottom",
+          "text-field": ["get", "name"],
+          "text-offset": [0, 0.6],
+          "text-anchor": "top",
+          "text-size": 13,
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 2,
+          "text-color": "#222222",
+        },
+      });
+    }
+  }, [map, isToolVisible, isMapReady]);
 
   const restoreMarkerImages = useCallback(() => {
     if (!map || markersRef.current.length === 0) return;
@@ -137,30 +224,111 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
         features: currentMarkers.map((m) => ({
           type: "Feature",
           geometry: { type: "Point", coordinates: [m.lon, m.lat] },
-          properties: { id: m.id, name: m.name, imageId: `marker-img-${m.id}` },
+          properties: {
+            id: m.id,
+            name: m.name,
+            imageId: `marker-img-${m.id}`,
+            markerColor: m.markerColor || "#ff3b30",
+          },
         })),
       };
 
       source.setData(geojsonData);
+      try {
+        map.triggerRepaint();
+      } catch {
+        // ignore
+      }
     },
     [map, initMapLayers]
   );
 
-  const saveMarkerImageToMap = (marker: MarkerItem) => {
-    if (!map) return;
-    const svgString = generateMarkerSvg(marker);
-    const svgDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-      svgString
-    )}`;
-    const img = new Image(marker.size, marker.size);
-    img.onload = () => {
-      const imageId = `marker-img-${marker.id}`;
-      if (map.hasImage(imageId)) map.removeImage(imageId);
-      map.addImage(imageId, img);
-      updateGeojsonSource(markersRef.current);
-    };
-    img.src = svgDataUrl;
-  };
+  useEffect(() => {
+    const currentMarkers = drawnLayers
+      .filter((l) => l.tool === "marker")
+      .map(
+        (l) =>
+          ({
+            ...initialMarkerState,
+            ...l.properties,
+            id: l.id,
+            name: l.name,
+            lon: l.coordinates?.[0] ?? l.properties?.lon ?? 0,
+            lat: l.coordinates?.[1] ?? l.properties?.lat ?? 0,
+            markerColor: l.properties?.markerColor || l.properties?.color || "#ff3b30",
+            iconType: l.properties?.iconType || "pin",
+            iconColor: l.properties?.iconColor || "#ffffff",
+            size: l.properties?.size || 38,
+            opacity: l.properties?.opacity || 100,
+          }) as MarkerItem
+      );
+    markersRef.current = currentMarkers;
+    updateGeojsonSource(currentMarkers);
+    restoreMarkerImages();
+  }, [drawnLayers, updateGeojsonSource, restoreMarkerImages]);
+
+  const updateDraftMarkerSource = useCallback(
+    (draft?: MarkerItem | null) => {
+      if (!map) return;
+      initMapLayers();
+      const source = map.getSource("draft-marker-source") as any;
+      if (!source) return;
+
+      if (draft) {
+        source.setData({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [draft.lon, draft.lat] },
+              properties: {
+                id: draft.id,
+                name: draft.name,
+                imageId: `marker-img-${draft.id}`,
+                markerColor: draft.markerColor || "#ff3b30",
+              },
+            },
+          ],
+        });
+      } else {
+        source.setData({ type: "FeatureCollection", features: [] });
+      }
+      try {
+        map.triggerRepaint();
+      } catch {
+        // ignore
+      }
+    },
+    [map, initMapLayers]
+  );
+
+  const saveMarkerImageToMap = useCallback(
+    (marker: MarkerItem) => {
+      if (!map) return;
+      const svgString = generateMarkerSvg(marker);
+      const svgDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+        svgString
+      )}`;
+      const img = new Image(marker.size, marker.size);
+      img.onload = () => {
+        const imageId = `marker-img-${marker.id}`;
+        if (map.hasImage(imageId)) map.removeImage(imageId);
+        map.addImage(imageId, img);
+        try {
+          map.triggerRepaint();
+        } catch {
+          // ignore
+        }
+        if (markersRef.current.some((m) => m.id === marker.id)) {
+          updateGeojsonSource(markersRef.current);
+        } else {
+          updateDraftMarkerSource(marker);
+        }
+      };
+      img.src = svgDataUrl;
+    },
+    [map, updateGeojsonSource, updateDraftMarkerSource]
+  );
 
   useEffect(() => {
     if (!map) return;
@@ -174,7 +342,9 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
     map.on("style.load", onStyleLoad);
 
     const handleMapClick = (e: any) => {
-      if (map.getLayer("custom-markers-layer")) {
+      if (isEraserModeRef.current) return;
+
+      if (!isDrawingRef.current && map.getLayer("custom-markers-layer")) {
         const features = map.queryRenderedFeatures(e.point, {
           layers: ["custom-markers-layer"],
         });
@@ -185,6 +355,8 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
           if (marker) {
             setMarkerData(marker);
             setOpen(true);
+            saveMarkerImageToMap(marker);
+            updateDraftMarkerSource(marker);
           }
           return;
         }
@@ -202,6 +374,20 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
         if (afterDrawMode === "auto-save") {
           markersRef.current.push(newMarker);
           saveMarkerImageToMap(newMarker);
+          addDrawnLayer({
+            id: newMarker.id,
+            name: newMarker.name,
+            tool: "marker",
+            visible: true,
+            coordinates: [newMarker.lon, newMarker.lat],
+            properties: { ...newMarker },
+            feature: {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [newMarker.lon, newMarker.lat] },
+              properties: { id: newMarker.id, name: newMarker.name },
+            },
+            createdAt: Date.now(),
+          });
           onDrawEnd?.({
             id: newMarker.id,
             tool: "marker",
@@ -219,17 +405,64 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
           setMarkerData(newMarker);
           setOpen(true);
           setIsDrawing(false);
+          saveMarkerImageToMap(newMarker);
+          updateDraftMarkerSource(newMarker);
         }
       }
     };
 
+    const handleMissingImage = (e: any) => {
+      const id = e?.id;
+      if (id && typeof id === "string" && id.startsWith("marker-img-")) {
+        const markerId = id.replace("marker-img-", "");
+        const targetMarker =
+          markersRef.current.find((m) => m.id === markerId) ||
+          (markerDataRef.current?.id === markerId ? markerDataRef.current : null);
+        if (targetMarker && !map.hasImage(id)) {
+          const svgString = generateMarkerSvg(targetMarker);
+          const svgDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svgString)}`;
+          const img = new Image(targetMarker.size, targetMarker.size);
+          img.onload = () => {
+            if (!map.hasImage(id)) map.addImage(id, img);
+          };
+          img.src = svgDataUrl;
+        }
+      }
+    };
+
+    map.on("styleimagemissing", handleMissingImage);
     map.on("click", handleMapClick);
 
     return () => {
       map.off("style.load", onStyleLoad);
+      map.off("styleimagemissing", handleMissingImage);
       map.off("click", handleMapClick);
     };
-  }, [map, initMapLayers, restoreMarkerImages, setIsDrawing, afterDrawMode, onDrawEnd]);
+  }, [
+    map,
+    initMapLayers,
+    restoreMarkerImages,
+    setIsDrawing,
+    afterDrawMode,
+    onDrawEnd,
+    addDrawnLayer,
+    saveMarkerImageToMap,
+    updateDraftMarkerSource,
+  ]);
+
+  const handlePropertyChange = (updates: Partial<MarkerItem>) => {
+    setMarkerData((prev) => {
+      const next = { ...prev, ...updates };
+      saveMarkerImageToMap(next);
+      updateDraftMarkerSource(next);
+      return next;
+    });
+  };
+
+  const handleCloseModal = () => {
+    updateDraftMarkerSource(null);
+    setOpen(false);
+  };
 
   const handleSave = () => {
     const existingIndex = markersRef.current.findIndex(
@@ -242,6 +475,22 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
     }
 
     saveMarkerImageToMap(markerData);
+    updateDraftMarkerSource(null);
+    updateGeojsonSource(markersRef.current);
+    addDrawnLayer({
+      id: markerData.id,
+      name: markerData.name,
+      tool: "marker",
+      visible: true,
+      coordinates: [markerData.lon, markerData.lat],
+      properties: { ...markerData },
+      feature: {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [markerData.lon, markerData.lat] },
+        properties: { id: markerData.id, name: markerData.name },
+      },
+      createdAt: Date.now(),
+    });
 
     onDrawEnd?.({
       id: markerData.id,
@@ -264,7 +513,9 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
     if (map && map.hasImage(`marker-img-${markerData.id}`)) {
       map.removeImage(`marker-img-${markerData.id}`);
     }
+    updateDraftMarkerSource(null);
     updateGeojsonSource(markersRef.current);
+    removeDrawnLayer(markerData.id);
     onDrawDelete?.({ id: markerData.id, tool: "marker" });
     setOpen(false);
     toast.info("Marker removed");
@@ -274,7 +525,7 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
     <>
       <button
         type="button"
-        className={`mlt-icon-btn ${isDrawing ? "active" : ""}`}
+        className={`mlt-icon-btn ${isDrawing ? "mlt-icon-btn-active" : ""}`}
         title={isDrawing ? "Click on map to drop marker" : "Draw / Place Marker"}
         onClick={() => setIsDrawing(!isDrawing)}
       >
@@ -283,10 +534,10 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
-        title={markerData.id ? "Edit Marker" : "New Marker"}
+        onClose={handleCloseModal}
+        title={markerData.id && markersRef.current.some((m) => m.id === markerData.id) ? "Edit Marker" : "New Marker"}
         footer={
-          <>
+          <div className="mlt-modal-footer">
             {markersRef.current.some((m) => m.id === markerData.id) && (
               <button
                 type="button"
@@ -294,14 +545,14 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
                 onClick={handleDelete}
                 style={{ marginRight: "auto" }}
               >
-                <TrashIcon size={16} />
+                <TrashIcon size={14} />
                 <span>Delete</span>
               </button>
             )}
             <button
               type="button"
-              className="mlt-btn mlt-btn-outlined"
-              onClick={() => setOpen(false)}
+              className="mlt-btn mlt-btn-secondary"
+              onClick={handleCloseModal}
             >
               Cancel
             </button>
@@ -312,83 +563,79 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
             >
               Save
             </button>
-          </>
+          </div>
         }
       >
         <div className="mlt-form-group">
-          <label className="mlt-form-label">Name / Label</label>
+          <label className="mlt-label">Name / Label</label>
           <input
             type="text"
             className="mlt-input"
             value={markerData.name}
-            onChange={(e) =>
-              setMarkerData((prev) => ({ ...prev, name: e.target.value }))
-            }
+            onChange={(e) => handlePropertyChange({ name: e.target.value })}
+            placeholder="e.g. Landmark Pin"
           />
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
-          <div className="mlt-form-group" style={{ flex: 1 }}>
-            <label className="mlt-form-label">Latitude</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <div className="mlt-form-group">
+            <label className="mlt-label">Latitude</label>
             <input
               type="number"
               step="any"
               className="mlt-input"
               value={markerData.lat}
               onChange={(e) =>
-                setMarkerData((prev) => ({ ...prev, lat: Number(e.target.value) }))
+                handlePropertyChange({ lat: Number(e.target.value) })
               }
             />
           </div>
-          <div className="mlt-form-group" style={{ flex: 1 }}>
-            <label className="mlt-form-label">Longitude</label>
+          <div className="mlt-form-group">
+            <label className="mlt-label">Longitude</label>
             <input
               type="number"
               step="any"
               className="mlt-input"
               value={markerData.lon}
               onChange={(e) =>
-                setMarkerData((prev) => ({ ...prev, lon: Number(e.target.value) }))
+                handlePropertyChange({ lon: Number(e.target.value) })
               }
             />
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
-          <div className="mlt-form-group" style={{ flex: 1 }}>
-            <label className="mlt-form-label">Pin Color</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <div className="mlt-form-group">
+            <label className="mlt-label">Pin Color</label>
             <input
               type="color"
               className="mlt-color-picker"
               value={markerData.markerColor}
               onChange={(e) =>
-                setMarkerData((prev) => ({ ...prev, markerColor: e.target.value }))
+                handlePropertyChange({ markerColor: e.target.value })
               }
             />
           </div>
-          <div className="mlt-form-group" style={{ flex: 1 }}>
-            <label className="mlt-form-label">Symbol Color</label>
+          <div className="mlt-form-group">
+            <label className="mlt-label">Symbol Color</label>
             <input
               type="color"
               className="mlt-color-picker"
               value={markerData.iconColor}
               onChange={(e) =>
-                setMarkerData((prev) => ({ ...prev, iconColor: e.target.value }))
+                handlePropertyChange({ iconColor: e.target.value })
               }
             />
           </div>
         </div>
 
         <div className="mlt-form-group">
-          <label className="mlt-form-label">Symbol Icon</label>
+          <label className="mlt-label">Symbol Icon</label>
           <select
             className="mlt-select"
             value={markerData.iconType}
             onChange={(e) =>
-              setMarkerData((prev) => ({
-                ...prev,
-                iconType: e.target.value as any,
-              }))
+              handlePropertyChange({ iconType: e.target.value as any })
             }
           >
             <option value="star">Star</option>
@@ -400,10 +647,7 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
 
         <div className="mlt-form-group">
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <label className="mlt-form-label">Size</label>
-            <span style={{ fontSize: "0.75rem", color: "#86868b" }}>
-              {markerData.size}px
-            </span>
+            <label className="mlt-label">Size ({markerData.size}px)</label>
           </div>
           <input
             type="range"
@@ -412,7 +656,7 @@ export const DrawMarkerControl: FC<DrawMarkerControlProps> = ({
             max={64}
             value={markerData.size}
             onChange={(e) =>
-              setMarkerData((prev) => ({ ...prev, size: Number(e.target.value) }))
+              handlePropertyChange({ size: Number(e.target.value) })
             }
           />
         </div>

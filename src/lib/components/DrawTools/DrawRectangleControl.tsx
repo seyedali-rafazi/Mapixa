@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, type FC } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import { useExclusiveTool, useMapTool } from "../../context/MapToolContext";
 import { useLayerVisibility } from "../../context/LayerVisibilityContext";
+import { useDrawLayers } from "../../context/DrawLayersContext";
 import { calculatePolygonAreaSqM } from "../../utils/geoCalculations";
 import { copyToClipboard } from "../../utils/exportUtils";
 import { Modal } from "../ui/Modal";
@@ -56,6 +57,9 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
   const { onDrawEnd, onDrawDelete, afterDrawMode, extraActions: contextExtraActions } =
     useMapTool();
   const { isToolVisible } = useLayerVisibility();
+  const { addDrawnLayer, removeDrawnLayer, drawnLayers, isEraserMode } = useDrawLayers();
+  const isEraserModeRef = useRef(isEraserMode);
+  isEraserModeRef.current = isEraserMode;
 
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
@@ -67,10 +71,38 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
   const startPointRef = useRef<[number, number] | null>(null);
   const isRectModeRef = useRef(isRectMode);
 
+  useEffect(() => {
+    const currentRects = drawnLayers
+      .filter((l) => l.tool === "rectangle")
+      .map(
+        (l) =>
+          ({
+            id: l.id,
+            name: l.name,
+            p1: l.coordinates?.[0] || l.properties?.p1 || [0, 0],
+            p2: l.coordinates?.[1] || l.properties?.p2 || [0, 0],
+            fillColor: l.properties?.fillColor || "#34c759",
+            fillOpacity: (l.properties?.fillOpacity ?? 0.3) * 100,
+            outlineColor: l.properties?.outlineColor || "#248a3d",
+            areaSqKm: l.metrics?.areaSqKm,
+          }) as RectangleItem
+      );
+    rectDataRef.current = currentRects;
+  }, [drawnLayers]);
+
   const mergedActions = propExtraActions || config?.extraActions || contextExtraActions;
 
+  const isMapReady = useCallback(() => {
+    if (!map) return false;
+    try {
+      return Boolean(map.getStyle() && map.getStyle().layers);
+    } catch {
+      return false;
+    }
+  }, [map]);
+
   const initMapLayers = useCallback(() => {
-    if (!map || !map.isStyleLoaded()) return;
+    if (!isMapReady()) return;
 
     if (!map.getSource("custom-rect-source")) {
       map.addSource("custom-rect-source", {
@@ -108,7 +140,7 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
         },
       });
     }
-  }, [map, isToolVisible]);
+  }, [map, isToolVisible, isMapReady]);
 
   const updateSourceData = useCallback(
     (draftRect?: RectangleItem | null) => {
@@ -118,30 +150,16 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
       const source = map.getSource("custom-rect-source") as any;
       if (!source) return;
 
-      const features = rectDataRef.current.map((r) => ({
-        type: "Feature",
-        properties: {
-          id: r.id,
-          name: r.name,
-          fillColor: r.fillColor,
-          fillOpacity: r.fillOpacity / 100,
-          outlineColor: r.outlineColor,
-        },
-        geometry: {
-          type: "Polygon",
-          coordinates: [getRectCoordinates(r.p1, r.p2)],
-        },
-      }));
-
-      if (draftRect) {
+      const features: any[] = [];
+      if (draftRect && draftRect.p1 && draftRect.p2) {
         features.push({
           type: "Feature",
           properties: {
-            id: "draft-rectangle",
-            name: "Draft Rectangle",
-            fillColor: "#34c759",
-            fillOpacity: 0.25,
-            outlineColor: "#34c759",
+            id: draftRect.id || "draft-rectangle",
+            name: draftRect.name || "Draft Rectangle",
+            fillColor: draftRect.fillColor || "#34c759",
+            fillOpacity: (draftRect.fillOpacity ?? 30) / 100,
+            outlineColor: draftRect.outlineColor || "#34c759",
           },
           geometry: {
             type: "Polygon",
@@ -151,6 +169,11 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
       }
 
       source.setData({ type: "FeatureCollection", features });
+      try {
+        map.triggerRepaint();
+      } catch {
+        // ignore
+      }
     },
     [map, initMapLayers]
   );
@@ -163,35 +186,45 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
 
     if (!isRectMode) {
       startPointRef.current = null;
-      updateSourceData();
+      if (!open) {
+        updateSourceData(null);
+      }
     }
-  }, [isRectMode, map, updateSourceData]);
+  }, [isRectMode, map, updateSourceData, open]);
 
   useEffect(() => {
     if (!map) return;
 
     const onStyleLoad = () => {
       initMapLayers();
-      updateSourceData();
+      updateSourceData(null);
     };
 
-    if (map.isStyleLoaded()) initMapLayers();
+    if (isMapReady()) initMapLayers();
     map.on("style.load", onStyleLoad);
+    map.on("load", onStyleLoad);
 
     const handleMapClick = (e: any) => {
-      if (!isRectModeRef.current && map.getLayer("custom-rect-fill")) {
+      if (isEraserModeRef.current) return;
+
+      const layersToCheck = [
+        map.getLayer("custom-draw-shapes-fill") ? "custom-draw-shapes-fill" : null,
+        map.getLayer("custom-rect-fill") ? "custom-rect-fill" : null,
+      ].filter(Boolean) as string[];
+
+      if (!isRectModeRef.current && layersToCheck.length > 0) {
         const features = map.queryRenderedFeatures(e.point, {
-          layers: ["custom-rect-fill"],
+          layers: layersToCheck,
         });
         if (features.length > 0) {
-          e.preventDefault();
           const clickedId = features[0].properties?.id;
           const rect = rectDataRef.current.find((r) => r.id === clickedId);
           if (rect) {
+            e.preventDefault();
             setRectData(rect);
             setOpen(true);
+            return;
           }
-          return;
         }
       }
 
@@ -221,8 +254,33 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
           };
 
           if (afterDrawMode === "auto-save") {
-            rectDataRef.current.push(newRect);
-            updateSourceData();
+            addDrawnLayer({
+              id: newRect.id,
+              name: newRect.name,
+              tool: "rectangle",
+              visible: true,
+              coordinates: [p1, p2],
+              metrics: { areaSqKm: newRect.areaSqKm },
+              properties: {
+                id: newRect.id,
+                name: newRect.name,
+                fillColor: newRect.fillColor,
+                fillOpacity: newRect.fillOpacity / 100,
+                outlineColor: newRect.outlineColor,
+                p1,
+                p2,
+              },
+              feature: {
+                type: "Feature",
+                geometry: {
+                  type: "Polygon",
+                  coordinates: [coords],
+                },
+                properties: { id: newRect.id, name: newRect.name },
+              },
+              createdAt: Date.now(),
+            });
+            updateSourceData(null);
             onDrawEnd?.({
               id: newRect.id,
               tool: "rectangle",
@@ -242,11 +300,12 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
           } else {
             setRectData(newRect);
             setOpen(true);
+            // Keep draft rectangle visible on map while modal is open
+            updateSourceData(newRect);
           }
 
           startPointRef.current = null;
           setIsRectMode(false);
-          updateSourceData();
         }
       }
     };
@@ -267,22 +326,58 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
 
     return () => {
       map.off("style.load", onStyleLoad);
+      map.off("load", onStyleLoad);
       map.off("click", handleMapClick);
       map.off("mousemove", handleMouseMove);
     };
-  }, [map, initMapLayers, updateSourceData, isRectMode, setIsRectMode, afterDrawMode, onDrawEnd]);
+  }, [map, initMapLayers, updateSourceData, isRectMode, setIsRectMode, afterDrawMode, onDrawEnd, addDrawnLayer, isMapReady]);
+
+  const handleCloseModal = () => {
+    setOpen(false);
+    updateSourceData(null);
+  };
+
+  const handlePropertyChange = (updates: Partial<RectangleItem>) => {
+    setRectData((prev) => {
+      const next = { ...prev, ...updates };
+      // Live preview update for unsaved draft rectangle
+      if (!drawnLayers.some((l) => l.id === next.id)) {
+        updateSourceData(next);
+      }
+      return next;
+    });
+  };
 
   const handleSave = () => {
-    const existingIndex = rectDataRef.current.findIndex(
-      (r) => r.id === rectData.id
-    );
-    if (existingIndex >= 0) {
-      rectDataRef.current[existingIndex] = rectData;
-    } else {
-      rectDataRef.current.push(rectData);
-    }
+    const coords = getRectCoordinates(rectData.p1, rectData.p2);
+    addDrawnLayer({
+      id: rectData.id,
+      name: rectData.name,
+      tool: "rectangle",
+      visible: true,
+      coordinates: [rectData.p1, rectData.p2],
+      metrics: { areaSqKm: rectData.areaSqKm },
+      properties: {
+        id: rectData.id,
+        name: rectData.name,
+        fillColor: rectData.fillColor,
+        fillOpacity: rectData.fillOpacity / 100,
+        outlineColor: rectData.outlineColor,
+        p1: rectData.p1,
+        p2: rectData.p2,
+      },
+      feature: {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [coords],
+        },
+        properties: { id: rectData.id, name: rectData.name },
+      },
+      createdAt: Date.now(),
+    });
 
-    updateSourceData();
+    updateSourceData(null);
 
     onDrawEnd?.({
       id: rectData.id,
@@ -291,7 +386,7 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
         type: "Feature",
         geometry: {
           type: "Polygon",
-          coordinates: [getRectCoordinates(rectData.p1, rectData.p2)],
+          coordinates: [coords],
         },
         properties: { id: rectData.id, name: rectData.name },
       },
@@ -305,8 +400,8 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
   };
 
   const handleDelete = () => {
-    rectDataRef.current = rectDataRef.current.filter((r) => r.id !== rectData.id);
-    updateSourceData();
+    removeDrawnLayer(rectData.id);
+    updateSourceData(null);
     onDrawDelete?.({ id: rectData.id, tool: "rectangle" });
     setOpen(false);
     toast.info("Rectangle deleted");
@@ -329,7 +424,7 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleCloseModal}
         title={rectData.id ? "Edit Rectangle" : "New Rectangle"}
         footer={
           <div className="mlt-modal-footer">
@@ -346,7 +441,7 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
             <button
               type="button"
               className="mlt-btn mlt-btn-secondary"
-              onClick={() => setOpen(false)}
+              onClick={handleCloseModal}
             >
               Cancel
             </button>
@@ -366,9 +461,7 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
             type="text"
             className="mlt-input"
             value={rectData.name}
-            onChange={(e) =>
-              setRectData((prev) => ({ ...prev, name: e.target.value }))
-            }
+            onChange={(e) => handlePropertyChange({ name: e.target.value })}
             placeholder="e.g. Bounding Box"
           />
         </div>
@@ -386,9 +479,7 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
               type="color"
               className="mlt-color-picker"
               value={rectData.fillColor}
-              onChange={(e) =>
-                setRectData((prev) => ({ ...prev, fillColor: e.target.value }))
-              }
+              onChange={(e) => handlePropertyChange({ fillColor: e.target.value })}
             />
           </div>
 
@@ -398,9 +489,7 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
               type="color"
               className="mlt-color-picker"
               value={rectData.outlineColor}
-              onChange={(e) =>
-                setRectData((prev) => ({ ...prev, outlineColor: e.target.value }))
-              }
+              onChange={(e) => handlePropertyChange({ outlineColor: e.target.value })}
             />
           </div>
         </div>
@@ -416,10 +505,9 @@ export const DrawRectangleControl: FC<DrawRectangleControlProps> = ({
             max={100}
             value={rectData.fillOpacity}
             onChange={(e) =>
-              setRectData((prev) => ({
-                ...prev,
+              handlePropertyChange({
                 fillOpacity: Number(e.target.value),
-              }))
+              })
             }
           />
         </div>

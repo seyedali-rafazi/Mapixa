@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, type FC } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import { useExclusiveTool, useMapTool } from "../../context/MapToolContext";
 import { useLayerVisibility } from "../../context/LayerVisibilityContext";
+import { useDrawLayers } from "../../context/DrawLayersContext";
 import { calculatePolygonAreaSqM } from "../../utils/geoCalculations";
 import { copyToClipboard } from "../../utils/exportUtils";
 import { Modal } from "../ui/Modal";
@@ -43,6 +44,9 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
   const { onDrawEnd, onDrawDelete, afterDrawMode, extraActions: contextExtraActions } =
     useMapTool();
   const { isToolVisible } = useLayerVisibility();
+  const { addDrawnLayer, removeDrawnLayer, drawnLayers, isEraserMode } = useDrawLayers();
+  const isEraserModeRef = useRef(isEraserMode);
+  isEraserModeRef.current = isEraserMode;
 
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
@@ -56,10 +60,38 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
   const hoverLngLatRef = useRef<number[] | null>(null);
   const isPolyModeRef = useRef(isPolyMode);
 
+  useEffect(() => {
+    const currentPolys = drawnLayers
+      .filter((l) => l.tool === "polygon")
+      .map(
+        (l) =>
+          ({
+            id: l.id,
+            name: l.name,
+            vertices: l.coordinates || l.properties?.vertices || [],
+            fillColor: l.properties?.fillColor || "#ff9500",
+            fillOpacity: (l.properties?.fillOpacity ?? 0.35) * 100,
+            outlineColor: l.properties?.outlineColor || "#e08500",
+            areaSqKm: l.metrics?.areaSqKm,
+            areaSqM: l.metrics?.areaSqM,
+          }) as PolygonItem
+      );
+    polyDataRef.current = currentPolys;
+  }, [drawnLayers]);
+
   const mergedActions = propExtraActions || config?.extraActions || contextExtraActions;
 
+  const isMapReady = useCallback(() => {
+    if (!map) return false;
+    try {
+      return Boolean(map.getStyle() && map.getStyle().layers);
+    } catch {
+      return false;
+    }
+  }, [map]);
+
   const initMapLayers = useCallback(() => {
-    if (!map || !map.isStyleLoaded()) return;
+    if (!isMapReady()) return;
 
     if (!map.getSource("custom-poly-source")) {
       map.addSource("custom-poly-source", {
@@ -122,97 +154,100 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
         },
       });
     }
-  }, [map, isToolVisible]);
+  }, [map, isToolVisible, isMapReady]);
 
-  const updateSourceData = useCallback(() => {
-    if (!map) return;
-    initMapLayers();
+  const updateSourceData = useCallback(
+    (draftPoly?: PolygonItem | null) => {
+      if (!map) return;
+      initMapLayers();
 
-    const polySource = map.getSource("custom-poly-source") as any;
-    const handleSource = map.getSource("custom-poly-handles") as any;
-    if (!polySource || !handleSource) return;
+      const polySource = map.getSource("custom-poly-source") as any;
+      const handleSource = map.getSource("custom-poly-handles") as any;
+      if (!polySource || !handleSource) return;
 
-    const features: any[] = [];
-    const handleFeatures: any[] = [];
+      const features: any[] = [];
+      const handleFeatures: any[] = [];
 
-    // Add completed polygons
-    polyDataRef.current.forEach((poly) => {
-      if (poly.vertices.length >= 3) {
-        const closedCoords = [...poly.vertices, poly.vertices[0]];
+      if (draftPoly && draftPoly.vertices && draftPoly.vertices.length >= 3) {
+        const closed = [...draftPoly.vertices, draftPoly.vertices[0]];
         features.push({
           type: "Feature",
           properties: {
-            id: poly.id,
-            name: poly.name,
-            fillColor: poly.fillColor,
-            fillOpacity: poly.fillOpacity / 100,
-            outlineColor: poly.outlineColor,
+            id: draftPoly.id || "draft-polygon",
+            fillColor: draftPoly.fillColor || "#ff9500",
+            fillOpacity: (draftPoly.fillOpacity ?? 30) / 100,
+            outlineColor: draftPoly.outlineColor || "#cc7700",
           },
           geometry: {
             type: "Polygon",
-            coordinates: [closedCoords],
+            coordinates: [closed],
           },
+        });
+      } else if (isPolyModeRef.current && currentVerticesRef.current.length > 0) {
+        const draftCoords = [...currentVerticesRef.current];
+        if (hoverLngLatRef.current) {
+          draftCoords.push(hoverLngLatRef.current);
+        }
+
+        if (draftCoords.length >= 3) {
+          const closedDraft = [...draftCoords, draftCoords[0]];
+          features.push({
+            type: "Feature",
+            properties: {
+              id: "draft-polygon",
+              fillColor: "#ff9500",
+              fillOpacity: 0.25,
+              outlineColor: "#ff9500",
+            },
+            geometry: {
+              type: "Polygon",
+              coordinates: [closedDraft],
+            },
+          });
+        } else if (draftCoords.length >= 2) {
+          features.push({
+            type: "Feature",
+            properties: {
+              id: "draft-polygon-line",
+              outlineColor: "#ff9500",
+            },
+            geometry: {
+              type: "LineString",
+              coordinates: draftCoords,
+            },
+          });
+        }
+
+        currentVerticesRef.current.forEach((pt, idx) => {
+          handleFeatures.push({
+            type: "Feature",
+            properties: { index: idx },
+            geometry: { type: "Point", coordinates: pt },
+          });
         });
       }
-    });
 
-    // Add drafting polygon
-    if (isPolyModeRef.current && currentVerticesRef.current.length > 0) {
-      const draftCoords = [...currentVerticesRef.current];
-      if (hoverLngLatRef.current) {
-        draftCoords.push(hoverLngLatRef.current);
-      }
-
-      if (draftCoords.length >= 3) {
-        const closedDraft = [...draftCoords, draftCoords[0]];
-        features.push({
-          type: "Feature",
-          properties: {
-            id: "draft-polygon",
-            fillColor: "#ff9500",
-            fillOpacity: 0.25,
-            outlineColor: "#ff9500",
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [closedDraft],
-          },
-        });
-      } else if (draftCoords.length >= 2) {
-        features.push({
-          type: "Feature",
-          properties: {
-            id: "draft-polygon-line",
-            outlineColor: "#ff9500",
-          },
-          geometry: {
-            type: "LineString",
-            coordinates: draftCoords,
-          },
-        });
-      }
-
-      currentVerticesRef.current.forEach((pt, idx) => {
-        handleFeatures.push({
-          type: "Feature",
-          properties: { index: idx },
-          geometry: { type: "Point", coordinates: pt },
-        });
+      polySource.setData({ type: "FeatureCollection", features });
+      handleSource.setData({
+        type: "FeatureCollection",
+        features: handleFeatures,
       });
-    }
 
-    polySource.setData({ type: "FeatureCollection", features });
-    handleSource.setData({
-      type: "FeatureCollection",
-      features: handleFeatures,
-    });
-  }, [map, initMapLayers]);
+      try {
+        map.triggerRepaint();
+      } catch {
+        // ignore
+      }
+    },
+    [map, initMapLayers]
+  );
 
   const handleFinishPolygon = useCallback(() => {
     if (currentVerticesRef.current.length >= 3) {
       const vertices = [...currentVerticesRef.current];
       const areaSqM = calculatePolygonAreaSqM(vertices);
       const areaSqKm = parseFloat((areaSqM / 1_000_000).toFixed(3));
+      const closedCoords = [...vertices, vertices[0]];
 
       const newPoly: PolygonItem = {
         ...initialPolygonState,
@@ -224,8 +259,32 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
       };
 
       if (afterDrawMode === "auto-save") {
-        polyDataRef.current.push(newPoly);
-        updateSourceData();
+        addDrawnLayer({
+          id: newPoly.id,
+          name: newPoly.name,
+          tool: "polygon",
+          visible: true,
+          coordinates: newPoly.vertices,
+          metrics: { areaSqM: newPoly.areaSqM, areaSqKm: newPoly.areaSqKm },
+          properties: {
+            id: newPoly.id,
+            name: newPoly.name,
+            fillColor: newPoly.fillColor,
+            fillOpacity: newPoly.fillOpacity / 100,
+            outlineColor: newPoly.outlineColor,
+            vertices: newPoly.vertices,
+          },
+          feature: {
+            type: "Feature",
+            geometry: {
+              type: "Polygon",
+              coordinates: [closedCoords],
+            },
+            properties: { id: newPoly.id, name: newPoly.name },
+          },
+          createdAt: Date.now(),
+        });
+        updateSourceData(null);
         onDrawEnd?.({
           id: newPoly.id,
           tool: "polygon",
@@ -233,7 +292,7 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
             type: "Feature",
             geometry: {
               type: "Polygon",
-              coordinates: [[...newPoly.vertices, newPoly.vertices[0]]],
+              coordinates: [closedCoords],
             },
             properties: { id: newPoly.id, name: newPoly.name },
           },
@@ -245,26 +304,22 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
       } else {
         setPolyData(newPoly);
         setOpen(true);
+        // Keep draft polygon visible while modal is open
+        updateSourceData(newPoly);
       }
 
       currentVerticesRef.current = [];
       hoverLngLatRef.current = null;
       setIsPolyMode(false);
       setHasEnoughPoints(false);
-      updateSourceData();
     } else {
       currentVerticesRef.current = [];
       hoverLngLatRef.current = null;
       setIsPolyMode(false);
       setHasEnoughPoints(false);
-      updateSourceData();
+      updateSourceData(null);
     }
-  }, [
-    setIsPolyMode,
-    updateSourceData,
-    afterDrawMode,
-    onDrawEnd,
-  ]);
+  }, [afterDrawMode, onDrawEnd, setIsPolyMode, updateSourceData, addDrawnLayer]);
 
   useEffect(() => {
     isPolyModeRef.current = isPolyMode;
@@ -276,35 +331,45 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
       currentVerticesRef.current = [];
       hoverLngLatRef.current = null;
       setHasEnoughPoints(false);
-      updateSourceData();
+      if (!open) {
+        updateSourceData(null);
+      }
     }
-  }, [isPolyMode, map, updateSourceData]);
+  }, [isPolyMode, map, updateSourceData, open]);
 
   useEffect(() => {
     if (!map) return;
 
     const onStyleLoad = () => {
       initMapLayers();
-      updateSourceData();
+      updateSourceData(null);
     };
 
-    if (map.isStyleLoaded()) initMapLayers();
+    if (isMapReady()) initMapLayers();
     map.on("style.load", onStyleLoad);
+    map.on("load", onStyleLoad);
 
     const handleMapClick = (e: any) => {
-      if (!isPolyModeRef.current && map.getLayer("custom-poly-fill")) {
+      if (isEraserModeRef.current) return;
+
+      const layersToCheck = [
+        map.getLayer("custom-draw-shapes-fill") ? "custom-draw-shapes-fill" : null,
+        map.getLayer("custom-poly-fill") ? "custom-poly-fill" : null,
+      ].filter(Boolean) as string[];
+
+      if (!isPolyModeRef.current && layersToCheck.length > 0) {
         const features = map.queryRenderedFeatures(e.point, {
-          layers: ["custom-poly-fill"],
+          layers: layersToCheck,
         });
         if (features.length > 0) {
-          e.preventDefault();
           const clickedId = features[0].properties?.id;
           const poly = polyDataRef.current.find((p) => p.id === clickedId);
           if (poly) {
+            e.preventDefault();
             setPolyData(poly);
             setOpen(true);
+            return;
           }
-          return;
         }
       }
 
@@ -340,23 +405,57 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
 
     return () => {
       map.off("style.load", onStyleLoad);
+      map.off("load", onStyleLoad);
       map.off("click", handleMapClick);
       map.off("mousemove", handleMouseMove);
       map.off("dblclick", handleDblClick);
     };
-  }, [map, initMapLayers, updateSourceData, handleFinishPolygon]);
+  }, [map, initMapLayers, updateSourceData, handleFinishPolygon, isMapReady]);
+
+  const handleCloseModal = () => {
+    setOpen(false);
+    updateSourceData(null);
+  };
+
+  const handlePropertyChange = (updates: Partial<PolygonItem>) => {
+    setPolyData((prev) => {
+      const next = { ...prev, ...updates };
+      if (!drawnLayers.some((l) => l.id === next.id)) {
+        updateSourceData(next);
+      }
+      return next;
+    });
+  };
 
   const handleSave = () => {
-    const existingIndex = polyDataRef.current.findIndex(
-      (p) => p.id === polyData.id
-    );
-    if (existingIndex >= 0) {
-      polyDataRef.current[existingIndex] = polyData;
-    } else {
-      polyDataRef.current.push(polyData);
-    }
+    const closedCoords = [...polyData.vertices, polyData.vertices[0]];
+    addDrawnLayer({
+      id: polyData.id,
+      name: polyData.name,
+      tool: "polygon",
+      visible: true,
+      coordinates: polyData.vertices,
+      metrics: { areaSqM: polyData.areaSqM, areaSqKm: polyData.areaSqKm },
+      properties: {
+        id: polyData.id,
+        name: polyData.name,
+        fillColor: polyData.fillColor,
+        fillOpacity: polyData.fillOpacity / 100,
+        outlineColor: polyData.outlineColor,
+        vertices: polyData.vertices,
+      },
+      feature: {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [closedCoords],
+        },
+        properties: { id: polyData.id, name: polyData.name },
+      },
+      createdAt: Date.now(),
+    });
 
-    updateSourceData();
+    updateSourceData(null);
 
     onDrawEnd?.({
       id: polyData.id,
@@ -365,7 +464,7 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
         type: "Feature",
         geometry: {
           type: "Polygon",
-          coordinates: [[...polyData.vertices, polyData.vertices[0]]],
+          coordinates: [closedCoords],
         },
         properties: { id: polyData.id, name: polyData.name },
       },
@@ -379,8 +478,8 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
   };
 
   const handleDelete = () => {
-    polyDataRef.current = polyDataRef.current.filter((p) => p.id !== polyData.id);
-    updateSourceData();
+    removeDrawnLayer(polyData.id);
+    updateSourceData(null);
     onDrawDelete?.({ id: polyData.id, tool: "polygon" });
     setOpen(false);
     toast.info("Polygon deleted");
@@ -421,7 +520,7 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleCloseModal}
         title={polyData.id ? "Edit Polygon" : "New Polygon"}
         footer={
           <div className="mlt-modal-footer">
@@ -438,7 +537,7 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
             <button
               type="button"
               className="mlt-btn mlt-btn-secondary"
-              onClick={() => setOpen(false)}
+              onClick={handleCloseModal}
             >
               Cancel
             </button>
@@ -458,9 +557,7 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
             type="text"
             className="mlt-input"
             value={polyData.name}
-            onChange={(e) =>
-              setPolyData((prev) => ({ ...prev, name: e.target.value }))
-            }
+            onChange={(e) => handlePropertyChange({ name: e.target.value })}
             placeholder="e.g. Zone A"
           />
         </div>
@@ -478,9 +575,7 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
               type="color"
               className="mlt-color-picker"
               value={polyData.fillColor}
-              onChange={(e) =>
-                setPolyData((prev) => ({ ...prev, fillColor: e.target.value }))
-              }
+              onChange={(e) => handlePropertyChange({ fillColor: e.target.value })}
             />
           </div>
 
@@ -490,9 +585,7 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
               type="color"
               className="mlt-color-picker"
               value={polyData.outlineColor}
-              onChange={(e) =>
-                setPolyData((prev) => ({ ...prev, outlineColor: e.target.value }))
-              }
+              onChange={(e) => handlePropertyChange({ outlineColor: e.target.value })}
             />
           </div>
         </div>
@@ -508,10 +601,9 @@ export const DrawPolygonControl: FC<DrawPolygonControlProps> = ({
             max={100}
             value={polyData.fillOpacity}
             onChange={(e) =>
-              setPolyData((prev) => ({
-                ...prev,
+              handlePropertyChange({
                 fillOpacity: Number(e.target.value),
-              }))
+              })
             }
           />
         </div>

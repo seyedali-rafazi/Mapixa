@@ -13,6 +13,7 @@ export interface PopoverProps {
   style?: React.CSSProperties;
   className?: string;
   placement?: "left" | "right" | "top" | "bottom" | "auto";
+  closeOnClickOutside?: boolean;
 }
 
 export const Popover = ({
@@ -25,6 +26,7 @@ export const Popover = ({
   style,
   className = "",
   placement = "auto",
+  closeOnClickOutside = true,
 }: PopoverProps) => {
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const { popoverBackground, popoverStyle, themeColor } = useMapTool();
@@ -32,7 +34,7 @@ export const Popover = ({
   const isDark = isDarkColor(effectiveBg);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || closeOnClickOutside === false) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -47,7 +49,7 @@ export const Popover = ({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open, anchorEl, onClose]);
+  }, [open, anchorEl, onClose, closeOnClickOutside]);
 
   if (!open || !anchorEl) return null;
 
@@ -84,9 +86,17 @@ export const Popover = ({
       break;
   }
 
+  // If popover might overflow the bottom of the viewport, shift top upwards
+  const estimatedHeight = 440;
+  let adjustedTop = top;
+  if (adjustedTop + estimatedHeight > window.innerHeight - padding) {
+    adjustedTop = Math.max(padding, window.innerHeight - estimatedHeight - padding);
+  }
+
   // Constrain within viewport boundaries
   const clampedLeft = Math.max(padding, Math.min(window.innerWidth - width - padding, left));
-  const clampedTop = Math.max(padding, Math.min(window.innerHeight - 80, top));
+  const clampedTop = Math.max(padding, Math.min(window.innerHeight - 120, adjustedTop));
+  const maxAvailableHeight = Math.max(160, window.innerHeight - clampedTop - padding * 2);
 
   return createPortal(
     <div
@@ -97,6 +107,11 @@ export const Popover = ({
         top: clampedTop,
         left: clampedLeft,
         width,
+        maxHeight: maxAvailableHeight,
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box",
+        overflow: "hidden",
         ...(effectiveBg ? { background: effectiveBg } : {}),
         ...popoverStyle,
         ...style,

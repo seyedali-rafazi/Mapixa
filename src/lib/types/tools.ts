@@ -10,7 +10,8 @@ export type ToolType =
   | "ruler"
   | "capture"
   | "goto"
-  | "overlay";
+  | "overlay"
+  | "intersection";
 
 export type AfterDrawMode = "modal" | "auto-save" | "callback";
 
@@ -52,7 +53,8 @@ export interface LayerVisibilityState {
   freedraw: boolean;
   ruler: boolean;
   overlay: boolean;
-  [key: string]: boolean;
+  intersection?: boolean;
+  [key: string]: boolean | undefined;
 }
 
 export interface ToolConfig {
@@ -60,6 +62,27 @@ export interface ToolConfig {
   visible?: boolean;
   extraActions?: ExtraActionItem[];
   afterDrawMode?: AfterDrawMode;
+}
+
+export type DrawnToolType =
+  | "marker"
+  | "line"
+  | "polygon"
+  | "circle"
+  | "rectangle"
+  | "freedraw"
+  | "intersection";
+
+export interface DrawnLayerItem {
+  id: string;
+  name: string;
+  tool: DrawnToolType;
+  visible: boolean;
+  feature: any; // GeoJSON Feature
+  properties: Record<string, any>;
+  coordinates?: any;
+  metrics?: ToolMetrics;
+  createdAt: number;
 }
 
 export interface ToolsConfiguration {
@@ -73,5 +96,8 @@ export interface ToolsConfiguration {
   capture?: ToolConfig;
   goto?: ToolConfig;
   overlay?: ToolConfig;
+  erase?: ToolConfig;
+  layerManager?: ToolConfig;
+  intersection?: ToolConfig;
   [key: string]: ToolConfig | undefined;
 }

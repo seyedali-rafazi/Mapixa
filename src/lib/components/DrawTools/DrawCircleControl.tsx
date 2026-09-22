@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, type FC } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import { useExclusiveTool, useMapTool } from "../../context/MapToolContext";
 import { useLayerVisibility } from "../../context/LayerVisibilityContext";
+import { useDrawLayers } from "../../context/DrawLayersContext";
 import {
   calculateDistanceKm,
   createGeoJSONCircle,
@@ -47,6 +48,9 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
   const { onDrawEnd, onDrawDelete, afterDrawMode, extraActions: contextExtraActions } =
     useMapTool();
   const { isToolVisible } = useLayerVisibility();
+  const { addDrawnLayer, removeDrawnLayer, drawnLayers, isEraserMode } = useDrawLayers();
+  const isEraserModeRef = useRef(isEraserMode);
+  isEraserModeRef.current = isEraserMode;
 
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
@@ -58,10 +62,38 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
   const activeCenterRef = useRef<[number, number] | null>(null);
   const isCircleModeRef = useRef(isCircleMode);
 
+  useEffect(() => {
+    const currentCircles = drawnLayers
+      .filter((l) => l.tool === "circle")
+      .map(
+        (l) =>
+          ({
+            id: l.id,
+            name: l.name,
+            center: l.coordinates || l.properties?.center || [0, 0],
+            radiusKm: l.properties?.radiusKm || l.metrics?.radiusKm || 1,
+            fillColor: l.properties?.fillColor || "#007aff",
+            fillOpacity: (l.properties?.fillOpacity ?? 0.3) * 100,
+            outlineColor: l.properties?.outlineColor || "#0051a8",
+            areaSqKm: l.metrics?.areaSqKm,
+          }) as CircleItem
+      );
+    circleDataRef.current = currentCircles;
+  }, [drawnLayers]);
+
   const mergedActions = propExtraActions || config?.extraActions || contextExtraActions;
 
+  const isMapReady = useCallback(() => {
+    if (!map) return false;
+    try {
+      return Boolean(map.getStyle() && map.getStyle().layers);
+    } catch {
+      return false;
+    }
+  }, [map]);
+
   const initMapLayers = useCallback(() => {
-    if (!map || !map.isStyleLoaded()) return;
+    if (!isMapReady()) return;
 
     if (!map.getSource("custom-circle-source")) {
       map.addSource("custom-circle-source", {
@@ -99,7 +131,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
         },
       });
     }
-  }, [map, isToolVisible]);
+  }, [map, isToolVisible, isMapReady]);
 
   const updateSourceData = useCallback(
     (draftCircle?: CircleItem | null) => {
@@ -109,41 +141,32 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
       const source = map.getSource("custom-circle-source") as any;
       if (!source) return;
 
-      const features = circleDataRef.current.map((c) => ({
-        type: "Feature",
-        properties: {
-          id: c.id,
-          name: c.name,
-          fillColor: c.fillColor,
-          fillOpacity: c.fillOpacity / 100,
-          outlineColor: c.outlineColor,
-        },
-        geometry: {
-          type: "Polygon",
-          coordinates: [createGeoJSONCircle(c.center, c.radiusKm)],
-        },
-      }));
-
-      if (draftCircle) {
+      const features: any[] = [];
+      if (draftCircle && draftCircle.center) {
         features.push({
           type: "Feature",
           properties: {
-            id: "draft-circle",
-            name: "Draft Circle",
-            fillColor: "#007aff",
-            fillOpacity: 0.25,
-            outlineColor: "#007aff",
+            id: draftCircle.id || "draft-circle",
+            name: draftCircle.name || "Draft Circle",
+            fillColor: draftCircle.fillColor || "#007aff",
+            fillOpacity: (draftCircle.fillOpacity ?? 30) / 100,
+            outlineColor: draftCircle.outlineColor || "#007aff",
           },
           geometry: {
             type: "Polygon",
             coordinates: [
-              createGeoJSONCircle(draftCircle.center, draftCircle.radiusKm),
+              createGeoJSONCircle(draftCircle.center, draftCircle.radiusKm || 1),
             ],
           },
         });
       }
 
       source.setData({ type: "FeatureCollection", features });
+      try {
+        map.triggerRepaint();
+      } catch {
+        // ignore
+      }
     },
     [map, initMapLayers]
   );
@@ -156,35 +179,45 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
 
     if (!isCircleMode) {
       activeCenterRef.current = null;
-      updateSourceData();
+      if (!open) {
+        updateSourceData(null);
+      }
     }
-  }, [isCircleMode, map, updateSourceData]);
+  }, [isCircleMode, map, updateSourceData, open]);
 
   useEffect(() => {
     if (!map) return;
 
     const onStyleLoad = () => {
       initMapLayers();
-      updateSourceData();
+      updateSourceData(null);
     };
 
-    if (map.isStyleLoaded()) initMapLayers();
+    if (isMapReady()) initMapLayers();
     map.on("style.load", onStyleLoad);
+    map.on("load", onStyleLoad);
 
     const handleMapClick = (e: any) => {
-      if (!isCircleModeRef.current && map.getLayer("custom-circle-fill")) {
+      if (isEraserModeRef.current) return;
+
+      const layersToCheck = [
+        map.getLayer("custom-draw-shapes-fill") ? "custom-draw-shapes-fill" : null,
+        map.getLayer("custom-circle-fill") ? "custom-circle-fill" : null,
+      ].filter(Boolean) as string[];
+
+      if (!isCircleModeRef.current && layersToCheck.length > 0) {
         const features = map.queryRenderedFeatures(e.point, {
-          layers: ["custom-circle-fill"],
+          layers: layersToCheck,
         });
         if (features.length > 0) {
-          e.preventDefault();
           const clickedId = features[0].properties?.id;
           const circle = circleDataRef.current.find((c) => c.id === clickedId);
           if (circle) {
+            e.preventDefault();
             setCircleData(circle);
             setOpen(true);
+            return;
           }
-          return;
         }
       }
 
@@ -215,8 +248,34 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
           };
 
           if (afterDrawMode === "auto-save") {
-            circleDataRef.current.push(newCircle);
-            updateSourceData();
+            const circlePolygon = createGeoJSONCircle(newCircle.center, newCircle.radiusKm);
+            addDrawnLayer({
+              id: newCircle.id,
+              name: newCircle.name,
+              tool: "circle",
+              visible: true,
+              coordinates: newCircle.center,
+              metrics: { radiusKm: newCircle.radiusKm, areaSqKm: newCircle.areaSqKm },
+              properties: {
+                id: newCircle.id,
+                name: newCircle.name,
+                fillColor: newCircle.fillColor,
+                fillOpacity: newCircle.fillOpacity / 100,
+                outlineColor: newCircle.outlineColor,
+                center: newCircle.center,
+                radiusKm: newCircle.radiusKm,
+              },
+              feature: {
+                type: "Feature",
+                geometry: {
+                  type: "Polygon",
+                  coordinates: [circlePolygon],
+                },
+                properties: { id: newCircle.id, name: newCircle.name },
+              },
+              createdAt: Date.now(),
+            });
+            updateSourceData(null);
             onDrawEnd?.({
               id: newCircle.id,
               tool: "circle",
@@ -224,7 +283,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
                 type: "Feature",
                 geometry: {
                   type: "Polygon",
-                  coordinates: [createGeoJSONCircle(newCircle.center, newCircle.radiusKm)],
+                  coordinates: [circlePolygon],
                 },
                 properties: { id: newCircle.id, name: newCircle.name },
               },
@@ -236,11 +295,12 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
           } else {
             setCircleData(newCircle);
             setOpen(true);
+            // Keep draft circle visible while modal is open
+            updateSourceData(newCircle);
           }
 
           activeCenterRef.current = null;
           setIsCircleMode(false);
-          updateSourceData();
         }
       }
     };
@@ -265,22 +325,57 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
 
     return () => {
       map.off("style.load", onStyleLoad);
+      map.off("load", onStyleLoad);
       map.off("click", handleMapClick);
       map.off("mousemove", handleMouseMove);
     };
-  }, [map, initMapLayers, updateSourceData, isCircleMode, setIsCircleMode, afterDrawMode, onDrawEnd]);
+  }, [map, initMapLayers, updateSourceData, isCircleMode, setIsCircleMode, afterDrawMode, onDrawEnd, addDrawnLayer, isMapReady]);
+
+  const handleCloseModal = () => {
+    setOpen(false);
+    updateSourceData(null);
+  };
+
+  const handlePropertyChange = (updates: Partial<CircleItem>) => {
+    setCircleData((prev) => {
+      const next = { ...prev, ...updates };
+      if (!drawnLayers.some((l) => l.id === next.id)) {
+        updateSourceData(next);
+      }
+      return next;
+    });
+  };
 
   const handleSave = () => {
-    const existingIndex = circleDataRef.current.findIndex(
-      (c) => c.id === circleData.id
-    );
-    if (existingIndex >= 0) {
-      circleDataRef.current[existingIndex] = circleData;
-    } else {
-      circleDataRef.current.push(circleData);
-    }
+    const circlePolygon = createGeoJSONCircle(circleData.center, circleData.radiusKm);
+    addDrawnLayer({
+      id: circleData.id,
+      name: circleData.name,
+      tool: "circle",
+      visible: true,
+      coordinates: circleData.center,
+      metrics: { radiusKm: circleData.radiusKm, areaSqKm: circleData.areaSqKm },
+      properties: {
+        id: circleData.id,
+        name: circleData.name,
+        fillColor: circleData.fillColor,
+        fillOpacity: circleData.fillOpacity / 100,
+        outlineColor: circleData.outlineColor,
+        center: circleData.center,
+        radiusKm: circleData.radiusKm,
+      },
+      feature: {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [circlePolygon],
+        },
+        properties: { id: circleData.id, name: circleData.name },
+      },
+      createdAt: Date.now(),
+    });
 
-    updateSourceData();
+    updateSourceData(null);
 
     onDrawEnd?.({
       id: circleData.id,
@@ -289,7 +384,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
         type: "Feature",
         geometry: {
           type: "Polygon",
-          coordinates: [createGeoJSONCircle(circleData.center, circleData.radiusKm)],
+          coordinates: [circlePolygon],
         },
         properties: { id: circleData.id, name: circleData.name },
       },
@@ -303,8 +398,8 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
   };
 
   const handleDelete = () => {
-    circleDataRef.current = circleDataRef.current.filter((c) => c.id !== circleData.id);
-    updateSourceData();
+    removeDrawnLayer(circleData.id);
+    updateSourceData(null);
     onDrawDelete?.({ id: circleData.id, tool: "circle" });
     setOpen(false);
     toast.info("Circle deleted");
@@ -327,7 +422,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleCloseModal}
         title={circleData.id ? "Edit Circle" : "New Circle"}
         footer={
           <div className="mlt-modal-footer">
@@ -344,7 +439,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
             <button
               type="button"
               className="mlt-btn mlt-btn-secondary"
-              onClick={() => setOpen(false)}
+              onClick={handleCloseModal}
             >
               Cancel
             </button>
@@ -364,9 +459,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
             type="text"
             className="mlt-input"
             value={circleData.name}
-            onChange={(e) =>
-              setCircleData((prev) => ({ ...prev, name: e.target.value }))
-            }
+            onChange={(e) => handlePropertyChange({ name: e.target.value })}
             placeholder="e.g. Coverage Zone"
           />
         </div>
@@ -388,11 +481,10 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
             value={circleData.radiusKm}
             onChange={(e) => {
               const r = Number(e.target.value);
-              setCircleData((prev) => ({
-                ...prev,
+              handlePropertyChange({
                 radiusKm: r,
                 areaSqKm: parseFloat((Math.PI * r * r).toFixed(2)),
-              }));
+              });
             }}
           />
         </div>
@@ -404,9 +496,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
               type="color"
               className="mlt-color-picker"
               value={circleData.fillColor}
-              onChange={(e) =>
-                setCircleData((prev) => ({ ...prev, fillColor: e.target.value }))
-              }
+              onChange={(e) => handlePropertyChange({ fillColor: e.target.value })}
             />
           </div>
 
@@ -416,9 +506,7 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
               type="color"
               className="mlt-color-picker"
               value={circleData.outlineColor}
-              onChange={(e) =>
-                setCircleData((prev) => ({ ...prev, outlineColor: e.target.value }))
-              }
+              onChange={(e) => handlePropertyChange({ outlineColor: e.target.value })}
             />
           </div>
         </div>
@@ -434,10 +522,9 @@ export const DrawCircleControl: FC<DrawCircleControlProps> = ({
             max={100}
             value={circleData.fillOpacity}
             onChange={(e) =>
-              setCircleData((prev) => ({
-                ...prev,
+              handlePropertyChange({
                 fillOpacity: Number(e.target.value),
-              }))
+              })
             }
           />
         </div>

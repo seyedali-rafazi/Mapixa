@@ -23,11 +23,12 @@ export function generateMarkerSvg(m: MarkerSvgConfig): string {
   }
 
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <filter id="marker-shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.35"/>
-    </filter>
-    <path d="M50 5 C27.9 5 10 22.9 10 45 C10 75 50 95 50 95 C50 95 90 75 90 45 C90 22.9 72.1 5 50 5 Z" 
-          fill="${m.markerColor || "#ff3b30"}" opacity="${opacity}" stroke="#ffffff" stroke-width="4" filter="url(#marker-shadow)"/>
+    <!-- Vector Drop Shadow -->
+    <ellipse cx="50" cy="94" rx="20" ry="5" fill="rgba(0,0,0,0.28)" />
+    <!-- Pin Body -->
+    <path d="M50 6 C28 6 11 23 11 45 C11 74 50 93 50 93 C50 93 89 74 89 45 C89 23 72 6 50 6 Z" 
+          fill="${m.markerColor || "#ff3b30"}" opacity="${opacity}" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+    <!-- Inner Icon -->
     ${iconSvg}
   </svg>`;
 }

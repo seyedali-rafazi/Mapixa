@@ -27,6 +27,7 @@ const defaultVisibility: LayerVisibilityState = {
   freedraw: true,
   ruler: true,
   overlay: true,
+  intersection: true,
 };
 
 // Normalize common typos and aliases (e.g. polyline/polyine -> line)
@@ -45,13 +46,14 @@ export function normalizeVisibility(
   if ("freedraws" in input) normalized.freedraw = (input as any).freedraws;
   if ("rulers" in input) normalized.ruler = (input as any).rulers;
   if ("overlays" in input) normalized.overlay = (input as any).overlays;
+  if ("intersections" in input) normalized.intersection = (input as any).intersections;
   return normalized;
 }
 
 // Map each tool to its MapLibre GL layer IDs
 export const TOOL_LAYER_MAP: Record<ToolType, string[]> = {
   marker: ["custom-markers-layer"],
-  line: ["custom-lines-layer", "draft-line-layer"],
+  line: ["custom-lines-layer"],
   polygon: [
     "custom-poly-fill",
     "custom-poly-outline",
@@ -67,11 +69,20 @@ export const TOOL_LAYER_MAP: Record<ToolType, string[]> = {
     "custom-rect-outline",
     "custom-rect-handles-layer",
   ],
-  freedraw: ["custom-freedraw-layer", "draft-freedraw-layer"],
+  freedraw: ["custom-freedraw-layer"],
   ruler: ["ruler-line-layer", "ruler-label-layer", "ruler-points-layer"],
   capture: [],
   goto: [],
   overlay: [],
+  intersection: [
+    "intersection-lines-casing",
+    "intersection-lines-layer",
+    "intersection-vertices-layer",
+    "intersection-points-pulse",
+    "intersection-points-halo",
+    "intersection-points-layer",
+    "intersection-points-center",
+  ],
 };
 
 const LayerVisibilityContext = createContext<LayerVisibilityContextValue>({

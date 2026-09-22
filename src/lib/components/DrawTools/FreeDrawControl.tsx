@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback, type FC } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import { useExclusiveTool, useMapTool } from "../../context/MapToolContext";
 import { useLayerVisibility } from "../../context/LayerVisibilityContext";
+import { useDrawLayers } from "../../context/DrawLayersContext";
 import { calculateLineDistanceKm } from "../../utils/geoCalculations";
 import { Popover } from "../ui/Popover";
-import { FreehandIcon, TuneIcon, TrashIcon } from "../ui/Icons";
+import { FreehandIcon, TrashIcon } from "../ui/Icons";
 import ExtraActionButtons from "../ExtraActionButtons";
 import type { ExtraActionItem, ToolConfig } from "../../types/tools";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ export const FreeDrawControl: FC<FreeDrawControlProps> = ({
   const [isDrawingMode, setIsDrawingMode] = useExclusiveTool("freedraw");
   const { onDrawEnd, extraActions: contextExtraActions } = useMapTool();
   const { isToolVisible } = useLayerVisibility();
+  const { addDrawnLayer, removeDrawnLayer, drawnLayers } = useDrawLayers();
 
   const { current: currentMap } = useMap();
   const map = currentMap?.getMap();
@@ -32,6 +34,13 @@ export const FreeDrawControl: FC<FreeDrawControlProps> = ({
   const isMouseDownRef = useRef(false);
   const currentCoordsRef = useRef<number[][]>([]);
   const featuresRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    const currentFreedraws = drawnLayers
+      .filter((l) => l.tool === "freedraw")
+      .map((l) => l.feature);
+    featuresRef.current = currentFreedraws;
+  }, [drawnLayers]);
 
   const mergedActions = propExtraActions || config?.extraActions || contextExtraActions;
 
@@ -127,6 +136,7 @@ export const FreeDrawControl: FC<FreeDrawControlProps> = ({
       map.dragPan.enable();
       map.getCanvas().style.cursor = "";
       updateDraft([]);
+      setSettingsAnchor(null);
     }
   }, [isDrawingMode, map]);
 
@@ -175,8 +185,23 @@ export const FreeDrawControl: FC<FreeDrawControlProps> = ({
           },
         };
 
-        featuresRef.current.push(newFeature);
-        syncFeatures();
+        addDrawnLayer({
+          id: newFeature.properties.id,
+          name: `Freehand ${drawnLayers.filter((l) => l.tool === "freedraw").length + 1}`,
+          tool: "freedraw",
+          visible: true,
+          coordinates: coords,
+          metrics: { distanceKm: newFeature.properties.distanceKm },
+          properties: {
+            id: newFeature.properties.id,
+            color: lineColor,
+            width: lineWidth,
+            opacity: 1,
+          },
+          feature: newFeature as any,
+          createdAt: Date.now(),
+        });
+
         updateDraft([]);
 
         onDrawEnd?.({
@@ -203,55 +228,84 @@ export const FreeDrawControl: FC<FreeDrawControlProps> = ({
       map.off("mousemove", onMouseMove);
       map.off("mouseup", onMouseUp);
     };
-  }, [map, isDrawingMode, lineColor, lineWidth, initMapLayers, onDrawEnd]);
+  }, [map, isDrawingMode, lineColor, lineWidth, initMapLayers, onDrawEnd, addDrawnLayer, drawnLayers]);
 
   const clearAllFreeDraw = () => {
-    featuresRef.current = [];
-    syncFeatures();
+    drawnLayers
+      .filter((l) => l.tool === "freedraw")
+      .forEach((l) => removeDrawnLayer(l.id));
     toast.info("Cleared freehand drawings");
   };
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-        <button
-          type="button"
-          className={`mlt-icon-btn ${isDrawingMode ? "mlt-icon-btn-active" : ""}`}
-          onClick={() => setIsDrawingMode(!isDrawingMode)}
-          title={
-            isDrawingMode
-              ? "Click and drag on map to sketch freehand"
-              : "Freehand Pen Draw"
+      <button
+        type="button"
+        className={`mlt-icon-btn ${isDrawingMode ? "mlt-icon-btn-active" : ""}`}
+        onClick={(e) => {
+          if (!isDrawingMode) {
+            setIsDrawingMode(true);
+            setSettingsAnchor(e.currentTarget);
+          } else {
+            setIsDrawingMode(false);
+            setSettingsAnchor(null);
           }
-        >
-          <FreehandIcon size={18} />
-        </button>
-
-        {isDrawingMode && (
-          <button
-            type="button"
-            className="mlt-icon-btn"
-            style={{ width: 28, height: 28 }}
-            onClick={(e) => setSettingsAnchor(e.currentTarget)}
-            title="Brush Settings"
-          >
-            <TuneIcon size={14} />
-          </button>
-        )}
-      </div>
+        }}
+        title={
+          isDrawingMode
+            ? "Freehand Pen active (click to turn off)"
+            : "Freehand Pen Draw"
+        }
+      >
+        <FreehandIcon size={18} />
+      </button>
 
       {/* Brush Settings Popover */}
       <Popover
         open={Boolean(settingsAnchor)}
         anchorEl={settingsAnchor}
         onClose={() => setSettingsAnchor(null)}
-        width={220}
+        width={240}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>Brush Settings</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 700, fontSize: "0.9rem" }}>Brush Settings</span>
+            <div
+              style={{
+                width: Math.min(24, Math.max(10, lineWidth * 1.5)),
+                height: Math.min(24, Math.max(10, lineWidth * 1.5)),
+                borderRadius: "50%",
+                backgroundColor: lineColor,
+                border: "2px solid rgba(0,0,0,0.15)",
+                boxShadow: `0 0 8px ${lineColor}66`,
+              }}
+              title="Stroke Preview"
+            />
+          </div>
+
+          {/* Quick Color Presets */}
+          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            {["#ff2d55", "#007aff", "#34c759", "#ff9500", "#af52de", "#1c1c1e"].map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setLineColor(c)}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  backgroundColor: c,
+                  border: lineColor === c ? "2px solid #ffffff" : "1px solid rgba(0,0,0,0.15)",
+                  boxShadow: lineColor === c ? "0 0 0 2px var(--mlt-primary, #007aff)" : "none",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
 
           <div className="mlt-form-group">
-            <label className="mlt-label">Color</label>
+            <label className="mlt-label">Custom Color</label>
             <input
               type="color"
               className="mlt-color-picker"
@@ -261,27 +315,38 @@ export const FreeDrawControl: FC<FreeDrawControlProps> = ({
           </div>
 
           <div className="mlt-form-group">
-            <label className="mlt-label">
-              Stroke Width ({lineWidth}px)
-            </label>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <label className="mlt-label">Stroke Width</label>
+              <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>{lineWidth}px</span>
+            </div>
             <input
               type="range"
               className="mlt-slider"
               min={1}
-              max={16}
+              max={20}
               value={lineWidth}
               onChange={(e) => setLineWidth(Number(e.target.value))}
             />
           </div>
 
-          <button
-            type="button"
-            className="mlt-btn mlt-btn-danger"
-            onClick={clearAllFreeDraw}
-            style={{ fontSize: "0.75rem", padding: "6px" }}
-          >
-            <TrashIcon size={13} /> Clear Drawings
-          </button>
+          <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+            <button
+              type="button"
+              className="mlt-btn mlt-btn-danger"
+              onClick={clearAllFreeDraw}
+              style={{ fontSize: "0.75rem", padding: "5px 8px", flex: 1 }}
+            >
+              <TrashIcon size={13} /> Clear
+            </button>
+            <button
+              type="button"
+              className="mlt-btn mlt-btn-primary"
+              onClick={() => setSettingsAnchor(null)}
+              style={{ fontSize: "0.75rem", padding: "5px 12px" }}
+            >
+              Done
+            </button>
+          </div>
 
           {/* Extra Actions */}
           <ExtraActionButtons

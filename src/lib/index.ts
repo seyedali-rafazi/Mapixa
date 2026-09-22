@@ -42,6 +42,10 @@ export { FreeDrawControl } from "./components/DrawTools/FreeDrawControl";
 export type { FreeDrawControlProps } from "./components/DrawTools/FreeDrawControl";
 export { IntersectionControl } from "./components/DrawTools/IntersectionControl";
 export type { IntersectionControlProps } from "./components/DrawTools/IntersectionControl";
+export { DrawEraseControl } from "./components/DrawTools/DrawEraseControl";
+export type { DrawEraseControlProps } from "./components/DrawTools/DrawEraseControl";
+export { DrawLayerManagerControl } from "./components/DrawTools/DrawLayerManagerControl";
+export type { DrawLayerManagerControlProps } from "./components/DrawTools/DrawLayerManagerControl";
 
 // Extra Tools
 export { ExtraMapTools } from "./components/ExtraTools/ExtraMapTools";
@@ -94,6 +98,15 @@ export type {
 } from "./context/LayerVisibilityContext";
 
 export {
+  DrawLayersProvider,
+  useDrawLayers,
+} from "./context/DrawLayersContext";
+export type {
+  DrawLayersContextValue,
+  DrawLayersProviderProps,
+} from "./context/DrawLayersContext";
+
+export {
   AccordionGroupProvider,
   useAccordionGroupItem,
 } from "./context/AccordionGroupContext";
@@ -115,6 +128,8 @@ export type { ToolbarContextValue } from "./context/ToolbarContext";
 // Types
 export type {
   ToolType,
+  DrawnToolType,
+  DrawnLayerItem,
   AfterDrawMode,
   ToolMetrics,
   ActionContext,
