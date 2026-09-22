@@ -3,12 +3,63 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
 import { Map } from "react-map-gl/maplibre";
 import { Toaster, toast } from "sonner";
-import { Mapixa, MapAccordion, MapButton } from "./lib";
+import {
+  Mapixa,
+  MapAccordion,
+  MapButton,
+  BasemapSwitcher,
+  type BasemapLayerItem,
+  type BasemapOverlayItem,
+} from "./lib";
 import type { DrawEndEvent, ExtraActionItem } from "./lib";
 import { downloadGeoJSON, copyToClipboard } from "./lib";
 import { Plane, Sparkles, Compass, MapPin } from "lucide-react";
 
 export function App() {
+  const basemapLayers: BasemapLayerItem[] = [
+    {
+      id: "dark",
+      name: "Dark Map",
+      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      description: "High-contrast dark cartography",
+    },
+    {
+      id: "light",
+      name: "Light Map",
+      style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+      description: "Clean minimalist light map",
+    },
+    {
+      id: "voyager",
+      name: "Voyager",
+      style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+      description: "Detailed colorful exploration style",
+    },
+    {
+      id: "demotiles",
+      name: "MapLibre Demo",
+      style: "https://demotiles.maplibre.org/style.json",
+      description: "Official MapLibre demo vector tiles",
+    },
+  ];
+
+  const basemapOverlays: BasemapOverlayItem[] = [
+    {
+      id: "traffic-osm",
+      name: "Traffic & Road Grid",
+      style: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      description: "High-contrast street and transit overlay",
+      opacity: 0.65,
+    },
+    {
+      id: "seamarks",
+      name: "OpenSeaMap Marine Marks",
+      style: "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+      description: "Beacons, buoys, and marine routes",
+      opacity: 0.85,
+    },
+  ];
+
   // Extensible custom actions available inside tool modals after drawing
   const extraActions: ExtraActionItem[] = [
     {
@@ -129,13 +180,23 @@ export function App() {
           onDrawEnd={handleDrawEnd}
           visibility={{ polyine: true, circle: false }}
           color="#000"
+          // Mode 1: Integrated into the Navigation Section (Top-Left)
+          showBasemapSwitcher={true}
+          basemapLayers={basemapLayers}
+          basemapOverlays={basemapOverlays}
         >
-          {/* Custom Accordion in Toolbar containing Custom Buttons */}
+          {/* Custom Accordion in Toolbar containing Custom Buttons + Mode 2: BasemapSwitcher in Accordion */}
           <MapAccordion
             title="CUSTOM"
             tooltip="Custom Tools & Landmarks"
             icon={<Sparkles size={18} />}
           >
+            {/* Mode 2: User can implement as custom button in other accordion */}
+            <BasemapSwitcher
+              layer={basemapLayers}
+              overlay={basemapOverlays}
+              tooltip="Basemap & Overlays (In Accordion)"
+            />
             <MapButton
               icon={<Plane size={18} />}
               tooltip="Fly to Milad Tower"
@@ -155,7 +216,15 @@ export function App() {
             />
           </MapAccordion>
 
-          {/* Standalone Custom Floating Button like Fullscreen Button */}
+          {/* Mode 3: User can implement as single button like fullscreen */}
+          <BasemapSwitcher
+            position="bottom-right"
+            layer={basemapLayers}
+            overlay={basemapOverlays}
+            tooltip="Basemap & Overlays (Standalone Button)"
+          />
+
+          {/* Standalone Custom Floating Button */}
           <MapButton
             position="bottom-right"
             icon={<Compass size={18} />}

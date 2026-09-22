@@ -58,6 +58,12 @@ export type { ImageOverlayControlProps, OverlayImageItem } from "./components/Ex
 // Navigation Tools
 export { MapNavigator } from "./components/NavigationTools/MapNavigator";
 export type { MapNavigatorProps } from "./components/NavigationTools/MapNavigator";
+export { BasemapSwitcher } from "./components/NavigationTools/BasemapSwitcher";
+export type {
+  BasemapLayerItem,
+  BasemapOverlayItem,
+  BasemapSwitcherProps,
+} from "./types/basemap";
 export { CoordinateDisplay } from "./components/NavigationTools/CoordinateDisplay";
 export type { CoordinateDisplayProps } from "./components/NavigationTools/CoordinateDisplay";
 export { MapViewControl } from "./components/NavigationTools/MapViewControl";

@@ -1,4 +1,4 @@
-import { useState, type FC } from "react";
+import { useState, type FC, type ReactNode } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import {
   HomeIcon,
@@ -10,6 +10,12 @@ import {
 } from "../ui/Icons";
 import { toast } from "sonner";
 import { isDarkColor } from "../../utils/colorUtils";
+import { BasemapSwitcher } from "./BasemapSwitcher";
+import type {
+  BasemapLayerItem,
+  BasemapOverlayItem,
+  BasemapSwitcherProps,
+} from "../../types/basemap";
 
 export interface MapNavigatorProps {
   homeCenter?: [number, number];
@@ -17,6 +23,11 @@ export interface MapNavigatorProps {
   backgroundColor?: string;
   style?: React.CSSProperties;
   className?: string;
+  showBasemapSwitcher?: boolean;
+  basemapLayers?: BasemapLayerItem[];
+  basemapOverlays?: BasemapOverlayItem[];
+  basemapSwitcherProps?: Partial<BasemapSwitcherProps>;
+  children?: ReactNode;
 }
 
 export const MapNavigator: FC<MapNavigatorProps> = ({
@@ -25,6 +36,11 @@ export const MapNavigator: FC<MapNavigatorProps> = ({
   backgroundColor,
   style,
   className = "",
+  showBasemapSwitcher = false,
+  basemapLayers,
+  basemapOverlays,
+  basemapSwitcherProps,
+  children,
 }) => {
   const isDark = isDarkColor(backgroundColor);
   const { current: currentMap } = useMap();
@@ -178,6 +194,40 @@ export const MapNavigator: FC<MapNavigatorProps> = ({
       >
         <BoxZoomIcon size={16} />
       </button>
+
+      {(showBasemapSwitcher || basemapLayers || basemapOverlays || basemapSwitcherProps) && (
+        <>
+          <div
+            style={{
+              width: "70%",
+              height: "1px",
+              backgroundColor: "var(--mlt-border)",
+              margin: "2px 0",
+            }}
+          />
+          <BasemapSwitcher
+            inNavigator
+            layer={basemapLayers}
+            overlay={basemapOverlays}
+            backgroundColor={backgroundColor}
+            {...basemapSwitcherProps}
+          />
+        </>
+      )}
+
+      {children && (
+        <>
+          <div
+            style={{
+              width: "70%",
+              height: "1px",
+              backgroundColor: "var(--mlt-border)",
+              margin: "2px 0",
+            }}
+          />
+          {children}
+        </>
+      )}
     </div>
   );
 };

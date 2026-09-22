@@ -15,6 +15,12 @@ import MapFlatViewEnforcer from "./NavigationTools/MapFlatViewEnforcer";
 import MapResizeHandler from "./NavigationTools/MapResizeHandler";
 import MapButton from "./Custom/MapButton";
 import MapAccordion from "./Custom/MapAccordion";
+import BasemapSwitcher from "./NavigationTools/BasemapSwitcher";
+import type {
+  BasemapLayerItem,
+  BasemapOverlayItem,
+  BasemapSwitcherProps,
+} from "../types/basemap";
 import type {
   ToolsConfiguration,
   LayerVisibilityState,
@@ -108,6 +114,11 @@ export interface MapLibreToolsProps {
   enforceFlatView?: boolean;
   autoResize?: boolean;
 
+  showBasemapSwitcher?: boolean;
+  basemapLayers?: BasemapLayerItem[];
+  basemapOverlays?: BasemapOverlayItem[];
+  basemapSwitcherProps?: Partial<BasemapSwitcherProps>;
+
   /**
    * Background color or CSS value for accordion toolbars (Draw & Extra tools).
    * Example: "#1e1e1e", "rgba(255, 255, 255, 0.9)", "linear-gradient(...)"
@@ -193,6 +204,10 @@ const MapLibreToolsBase: FC<MapLibreToolsProps> = ({
   showFullscreen = true,
   enforceFlatView = true,
   autoResize = true,
+  showBasemapSwitcher = false,
+  basemapLayers,
+  basemapOverlays,
+  basemapSwitcherProps,
   accordionBackground,
   accordionBg,
   accordionStyle,
@@ -254,6 +269,10 @@ const MapLibreToolsBase: FC<MapLibreToolsProps> = ({
                 <MapNavigator
                   backgroundColor={effectiveNavigatorBg}
                   style={navigatorStyle}
+                  showBasemapSwitcher={showBasemapSwitcher}
+                  basemapLayers={basemapLayers}
+                  basemapOverlays={basemapOverlays}
+                  basemapSwitcherProps={basemapSwitcherProps}
                 />
               </MapControlBox>
             )}
@@ -325,6 +344,7 @@ export type MapLibreToolsComponent = FC<MapLibreToolsProps> & {
   Navigator: typeof MapNavigator;
   Coordinates: typeof CoordinateDisplay;
   Fullscreen: typeof MapViewControl;
+  BasemapSwitcher: typeof BasemapSwitcher;
 };
 
 export const MapLibreTools = MapLibreToolsBase as unknown as MapLibreToolsComponent;
@@ -336,5 +356,6 @@ MapLibreTools.ExtraTools = ExtraMapTools;
 MapLibreTools.Navigator = MapNavigator;
 MapLibreTools.Coordinates = CoordinateDisplay;
 MapLibreTools.Fullscreen = MapViewControl;
+MapLibreTools.BasemapSwitcher = BasemapSwitcher;
 
 export default MapLibreTools;
