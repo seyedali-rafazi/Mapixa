@@ -15,7 +15,7 @@
 - [Quick Start](#-quick-start)
 - [Architecture & Usage Options](#-architecture--usage-options)
   - [1. All-in-One Component (`<Mapixa />`)](#1-all-in-one-component-mapixa-)
-  - [2. Compound Components (`Mapixa.Button`, `Mapixa.Accordion`, etc.)](#2-compound-components)
+  - [2. Compound Components (`Mapixa.Button`, `Mapixa.Accordion`, `Mapixa.BasemapSwitcher`, etc.)](#2-compound-components)
   - [3. Modular / Standalone Imports](#3-modular--standalone-imports)
 - [Complete Tools Documentation](#-complete-tools-documentation)
   - [Drawing Tools Suite](#-drawing-tools-suite)
@@ -26,22 +26,26 @@
     - [5. Rectangle Tool (`DrawRectangleControl`)](#5-rectangle-tool-drawrectanglecontrol)
     - [6. Freehand Drawing Tool (`FreeDrawControl`)](#6-freehand-drawing-tool-freedrawcontrol)
     - [7. Line Intersection Detector (`IntersectionControl`)](#7-line-intersection-detector-intersectioncontrol)
+    - [8. Interactive Shape Eraser (`DrawEraseControl`)](#8-interactive-shape-eraser-drawerasecontrol)
+    - [9. Drawn Layer Manager (`DrawLayerManagerControl`)](#9-drawn-layer-manager-drawlayermanagercontrol)
   - [Measurement & Utility Tools](#-measurement--utility-tools)
-    - [8. Distance Ruler Tool (`DrawRulerControl`)](#8-distance-ruler-tool-drawrulercontrol)
-    - [9. Area Capture / Screenshot Tool (`CaptureAreaControl`)](#9-area-capture--screenshot-tool-captureareacontrol)
-    - [10. Go to Coordinates Tool (`GoToControl`)](#10-go-to-coordinates-tool-gotocontrol)
-    - [11. Image Overlay Tool (`ImageOverlayControl`)](#11-image-overlay-tool-imageoverlaycontrol)
+    - [10. Distance Ruler Tool (`DrawRulerControl`)](#10-distance-ruler-tool-drawrulercontrol)
+    - [11. Area Capture / Screenshot Tool (`CaptureAreaControl`)](#11-area-capture--screenshot-tool-captureareacontrol)
+    - [12. Go to Coordinates Tool (`GoToControl`)](#12-go-to-coordinates-tool-gotocontrol)
+    - [13. Image Overlay Tool (`ImageOverlayControl`)](#13-image-overlay-tool-imageoverlaycontrol)
+  - [Basemap & Overlay System](#-basemap--overlay-system)
+    - [14. Basemap Switcher (`BasemapSwitcher`)](#14-basemap-switcher-basemapswitcher)
   - [Layer Visibility System](#-layer-visibility-system)
-    - [12. Layer Visibility Control (`LayerVisibilityControl`)](#12-layer-visibility-control-layervisibilitycontrol)
+    - [15. Layer Visibility Control (`LayerVisibilityControl`)](#15-layer-visibility-control-layervisibilitycontrol)
   - [Navigation & Viewport Tools](#-navigation--viewport-tools)
-    - [13. Map Navigator (`MapNavigator`)](#13-map-navigator-mapnavigator)
-    - [14. Live Coordinate Display (`CoordinateDisplay`)](#14-live-coordinate-display-coordinatedisplay)
-    - [15. Fullscreen View Control (`MapViewControl`)](#15-fullscreen-view-control-mapviewcontrol)
-    - [16. Map Flat View Enforcer (`MapFlatViewEnforcer`)](#16-map-flat-view-enforcer-mapflatviewenforcer)
-    - [17. Map Resize Handler (`MapResizeHandler`)](#17-map-resize-handler-mapresizehandler)
+    - [16. Map Navigator (`MapNavigator`)](#16-map-navigator-mapnavigator)
+    - [17. Live Coordinate Display & Interactive Picker (`CoordinateDisplay`)](#17-live-coordinate-display--interactive-picker-coordinatedisplay)
+    - [18. Fullscreen View Control (`MapViewControl`)](#18-fullscreen-view-control-mapviewcontrol)
+    - [19. Map Flat View Enforcer (`MapFlatViewEnforcer`)](#19-map-flat-view-enforcer-mapflatviewenforcer)
+    - [20. Map Resize Handler (`MapResizeHandler`)](#20-map-resize-handler-mapresizehandler)
   - [Extensibility & Custom Components](#-extensibility--custom-components)
-    - [18. Custom Map Accordion (`MapAccordion`)](#18-custom-map-accordion-mapaccordion)
-    - [19. Custom Map Button (`MapButton`)](#19-custom-map-button-mapbutton)
+    - [21. Custom Map Accordion (`MapAccordion`)](#21-custom-map-accordion-mapaccordion)
+    - [22. Custom Map Button (`MapButton`)](#22-custom-map-button-mapbutton)
 - [Lifecycle Events & After Draw Pipeline](#-lifecycle-events--after-draw-pipeline)
   - [The `onDrawEnd` Event](#1-ondrawend-event)
   - [Injecting Custom Action Buttons (`extraActions`)](#2-injecting-custom-action-buttons-extraactions)
@@ -59,8 +63,12 @@
 ## ✨ Features Overview
 
 - 📍 **Complete Drawing Suite**: Place custom SVG markers, draft polylines, draw multi-point polygons, radius-drag circles, drag rectangles, sketch freehand strokes, and detect intersecting lines.
+- 🗂️ **Live Drawn Layer Manager**: Central popover panel managing all drawn shapes across the map. Supports layer naming, inline editing, individual visibility toggling, drag-and-drop layer reordering (controlling visual map z-index), zoom-to-feature camera locate, and batch clear.
+- 🧹 **Interactive Shape Eraser**: One-click click-to-delete eraser tool to quickly purge individual shapes from the canvas with instant visual feedback.
+- 🗺️ **Basemap & Overlays Switcher**: Dynamically swap raster and vector base map styles (Dark, Light, Voyager, OSM, Demotiles) and toggle customizable map overlays (Traffic, Nautical Seamarks, etc.) with custom opacity.
 - 📐 **Measurement & GIS Tools**: Multi-point segment distance ruler, high-res canvas bounding box screenshot export, fly-to coordinate jumper, and movable/scalable georeferenced image overlays.
 - 👁️ **Unified Layer Visibility System**: Instantly toggle visibility of markers, polylines, polygons, circles, rectangles, freehand sketches, rulers, and overlays independently or collectively.
+- 🎯 **Coordinate Tracker & Interactive Picker**: Modern capsule displaying live cursor coordinates, plus a crosshair point-picking mode that lets users click anywhere on the map to copy exact coordinates to the clipboard.
 - ⚡ **"After Draw" Action Pipeline**: Full event lifecycle (`onDrawEnd`, `onDrawStart`, `onDrawChange`, `onDrawDelete`) with calculated metrics (distance in km, spherical area in $m^2$ and $km^2$, radius, perimeter).
 - 🧩 **First-Class Extensibility**: Add custom buttons and tool accordions seamlessly using `<MapAccordion />` and `<MapButton />` that adopt the exact same floating glassmorphic styling and behavior.
 - 🎨 **Pure CSS & Zero Framework Bloat**: No Material-UI, Tailwind, or Emotion required. Modern floating UI with smooth accordion animations and CSS variable theming.
@@ -106,6 +114,19 @@ import maplibregl from "maplibre-gl";
 import { Map } from "react-map-gl/maplibre";
 import { Mapixa } from "mapixa";
 
+const basemapLayers = [
+  {
+    id: "light",
+    name: "Light Map",
+    style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+  },
+  {
+    id: "dark",
+    name: "Dark Map",
+    style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  },
+];
+
 export function App() {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
@@ -120,6 +141,8 @@ export function App() {
         style={{ width: "100%", height: "100%" }}
       >
         <Mapixa
+          showBasemapSwitcher={true}
+          basemapLayers={basemapLayers}
           afterDrawMode="modal"
           onDrawEnd={(event) => {
             console.log("Drawn:", event.tool, event.feature, event.metrics);
@@ -140,7 +163,7 @@ export function App() {
 Mapixa provides three flexible ways to integrate tools into your map:
 
 ### 1. All-in-One Component (`<Mapixa />`)
-Mounts the complete suite: Draw Toolbar (top-right), Extra Tools (top-right), Navigator (top-left), Coordinates readout (bottom-left), and Fullscreen button (bottom-right).
+Mounts the complete suite: Draw Toolbar (top-right), Extra Tools (top-right), Navigator with Basemap Switcher (top-left), Coordinates readout & interactive picker (bottom-left), and Fullscreen button (bottom-right).
 
 ```tsx
 import { Mapixa } from "mapixa";
@@ -152,11 +175,13 @@ import { Mapixa } from "mapixa";
   viewControlPosition="bottom-right"
   toolbarGap={12}
   afterDrawMode="modal"
+  showBasemapSwitcher={true}
+  basemapLayers={myBasemapLayers}
 />
 ```
 
 ### 2. Compound Components
-All modular pieces are attached to `Mapixa` for convenient namespaced usage:
+All modular pieces are attached to `Mapixa` for convenient namespaced usage (`Mapixa.Button`, `Mapixa.Accordion`, `Mapixa.BasemapSwitcher`, `Mapixa.DrawLayersManager`, `Mapixa.DrawErase`, etc.):
 
 ```tsx
 import { Mapixa } from "mapixa";
@@ -172,6 +197,12 @@ import { Mapixa } from "mapixa";
     position="bottom-right"
     tooltip="Fly to Landmark"
     onClick={(_e, map) => map?.flyTo({ center: [0, 0], zoom: 5 })}
+  />
+
+  {/* Standalone floating Basemap Switcher */}
+  <Mapixa.BasemapSwitcher
+    position="top-left"
+    layers={myBasemapLayers}
   />
 </Mapixa>
 ```
@@ -384,11 +415,41 @@ Located in the **`DRAW`** accordion toolbar (`MapDrawTools`) or imported as stan
 
 ---
 
+#### 8. Interactive Shape Eraser (`DrawEraseControl`)
+- **Tool Key**: `"erase"`
+- **Component**: `DrawEraseControl` (or `Mapixa.DrawErase`)
+- **Description**: Rapid interactive eraser tool that turns the mouse into a deletion cursor. Allows users to click on any drawn shape, line, polygon, circle, rectangle, or freehand stroke on the map canvas to immediately remove it.
+- **User Interaction**:
+  1. Click the **Eraser** button in the Draw toolbar.
+  2. The button highlights with an active red badge and an informative toast confirms eraser mode is active.
+  3. Click directly on any drawn feature on the map to permanently delete it.
+  4. Click the Eraser button again to deactivate and return to normal map interaction.
+- **Configurable**: Configured via `toolsConfig={{ erase: { visible: true } }}`.
+
+---
+
+#### 9. Drawn Layer Manager (`DrawLayerManagerControl`)
+- **Tool Key**: `"layerManager"`
+- **Component**: `DrawLayerManagerControl` (or `Mapixa.DrawLayersManager`)
+- **Description**: Central management hub for all drawn vector features across the map. Opens an interactive popover displaying a live list of every marker, polyline, polygon, circle, rectangle, freehand sketch, and intersection marker currently rendered.
+- **Features & Controls**:
+  - **Dynamic Item Count Badge**: Button shows the exact total number of drawn features on the map.
+  - **Tool-Specific Shape Badges**: Each layer item displays its shape icon (Marker, Line, Polygon, Circle, Rectangle, Freehand, Intersection) along with a color swatch showing its fill/stroke color.
+  - **Inline Label Editing**: Click the Edit (Pencil) icon to rename any shape inline on the fly.
+  - **Locate & Zoom to Feature**: Click the Target/Locate icon to smoothly pan and zoom the map camera directly to that feature's bounding box.
+  - **Individual Visibility Toggles**: Click the Eye / EyeOff icon on any item to temporarily show or hide that specific feature on the map.
+  - **Global Visibility Toggle**: Header master toggle to instantly show or hide all drawn layers.
+  - **Drag-and-Drop & Reordering Buttons**: Drag items or use Up/Down arrow buttons to adjust the layer stacking order (z-index) on the map canvas.
+  - **Delete & Clear All**: Delete individual items or click "Clear All" with confirmation.
+- **Configurable**: Configured via `toolsConfig={{ layerManager: { visible: true } }}`.
+
+---
+
 ### 📐 Measurement & Utility Tools
 
 Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as standalone controls.
 
-#### 8. Distance Ruler Tool (`DrawRulerControl`)
+#### 10. Distance Ruler Tool (`DrawRulerControl`)
 - **Tool Key**: `"ruler"`
 - **Component**: `DrawRulerControl`
 - **Description**: Multi-point geodesic distance measuring tape. Computes individual segment distances, cumulative path length, and renders persistent floating distance tags directly on each segment of the map.
@@ -406,7 +467,7 @@ Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as sta
 
 ---
 
-#### 9. Area Capture / Screenshot Tool (`CaptureAreaControl`)
+#### 11. Area Capture / Screenshot Tool (`CaptureAreaControl`)
 - **Tool Key**: `"capture"`
 - **Component**: `CaptureAreaControl`
 - **Description**: Drag-to-select marquee crop tool that captures a high-resolution PNG image directly from the MapLibre WebGL canvas.
@@ -422,7 +483,7 @@ Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as sta
 
 ---
 
-#### 10. Go to Coordinates Tool (`GoToControl`)
+#### 12. Go to Coordinates Tool (`GoToControl`)
 - **Tool Key**: `"goto"`
 - **Component**: `GoToControl`
 - **Description**: Precision navigation popover that flies the camera smoothly to any latitude, longitude, and zoom level.
@@ -436,7 +497,7 @@ Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as sta
 
 ---
 
-#### 11. Image Overlay Tool (`ImageOverlayControl`)
+#### 13. Image Overlay Tool (`ImageOverlayControl`)
 - **Tool Key**: `"overlay"`
 - **Component**: `ImageOverlayControl`
 - **Description**: Georeferenced image overlay tool. Allows users to import external raster imagery (blueprints, site plans, drone orthomosaics, floorplans) and position them directly on the map coordinates.
@@ -452,9 +513,54 @@ Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as sta
 
 ---
 
+### 🗺️ Basemap & Overlay System
+
+#### 14. Basemap Switcher (`BasemapSwitcher`)
+- **Component**: `BasemapSwitcher` (or `Mapixa.BasemapSwitcher`)
+- **Description**: A comprehensive style and layer switcher popover. Enables dynamic switching between base styles (e.g., Carto Dark Matter, Positron Light, Voyager, OpenStreetMap, MapLibre Demotiles) and toggling transparent overlays (such as live traffic, nautical seamarks, contour lines, or administrative boundaries) with custom opacity.
+- **Flexible Usage**:
+  1. **Integrated in Navigator**: Set `showBasemapSwitcher={true}` and pass `basemapLayers` directly to `<Mapixa />` or `<MapNavigator />`.
+  2. **Standalone Floating**: Render `<BasemapSwitcher position="top-left" layers={layers} overlays={overlays} />`.
+  3. **Compound Component**: `<Mapixa.BasemapSwitcher layers={layers} />`.
+- **Props & Options**:
+  - `layers` (`layer`): Array of `BasemapLayerItem` (`{ id, name, style, thumbnail, icon, description, default }`).
+  - `overlays` (`overlay`): Array of `BasemapOverlayItem` (`{ id, name, style, opacity, source, layers, default }`).
+  - `defaultLayerId` / `activeLayerId`: Selected active base style ID.
+  - `onLayerChange`: Fired when a base layer is selected.
+  - `onOverlayChange`: Fired when active overlay IDs toggle.
+  - `popoverPlacement`: `'left' | 'right' | 'top' | 'bottom' | 'auto'`.
+
+```tsx
+import { BasemapSwitcher, type BasemapLayerItem, type BasemapOverlayItem } from "mapixa";
+
+const basemaps: BasemapLayerItem[] = [
+  { id: "dark", name: "Dark Matter", style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json" },
+  { id: "light", name: "Positron Light", style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json" },
+];
+
+const overlays: BasemapOverlayItem[] = [
+  {
+    id: "seamarks",
+    name: "OpenSeaMap Marine",
+    style: "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+    opacity: 0.8,
+  },
+];
+
+// As a standalone control:
+<BasemapSwitcher
+  position="top-left"
+  layers={basemaps}
+  overlays={overlays}
+  onLayerChange={(layer) => console.log("Active base style:", layer.name)}
+/>
+```
+
+---
+
 ### 👁️ Layer Visibility System
 
-#### 12. Layer Visibility Control (`LayerVisibilityControl`)
+#### 15. Layer Visibility Control (`LayerVisibilityControl`)
 - **Component**: `LayerVisibilityControl`
 - **Description**: Floating toggle menu allowing users to show or hide individual feature layers on the fly without deleting their underlying data.
 - **Supported Tool Layers**:
@@ -490,10 +596,11 @@ Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as sta
 
 ### 🧭 Navigation & Viewport Tools
 
-#### 13. Map Navigator (`MapNavigator`)
+#### 16. Map Navigator (`MapNavigator`)
 - **Component**: `MapNavigator`
 - **Default Position**: `top-left`
 - **Description**: Vertical glassmorphic navigation panel housing essential map controls:
+  - **Basemap Switcher**: Embedded popover trigger when `showBasemapSwitcher={true}` is enabled.
   - **Home Button (`HomeIcon`)**: Smoothly flies back to the initial `homeCenter` (default: `[51.389, 35.6892]`) and `homeZoom` (default: `11`), resetting pitch and bearing.
   - **Compass / North Button (`CompassIcon`)**: Instantly resets camera bearing to North ($0^\circ$) and resets pitch to $0^\circ$ (flat view).
   - **Zoom In (`PlusIcon`)**: Incremental step zoom in.
@@ -501,39 +608,42 @@ Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as sta
   - **Locate Me / GPS (`GpsIcon`)**: Triggers HTML5 Geolocation API, animates camera to user's current GPS position, and displays accuracy feedback.
   - **Box Zoom (`BoxZoomIcon`)**: Toggles rubberband box-zoom mode. Users can drag a box to zoom directly into that bounding region.
 - **Customizable**:
+  - `showBasemapSwitcher`: Toggles the embedded basemap switcher button.
+  - `basemapLayers`: List of basemap styles.
+  - `basemapOverlays`: List of overlay layers.
   - `homeCenter`: `[longitude, latitude]` array.
   - `homeZoom`: Target zoom level.
   - `backgroundColor`: Custom background color or CSS gradient.
 
 ---
 
-#### 14. Live Coordinate Display (`CoordinateDisplay`)
+#### 17. Live Coordinate Display & Interactive Picker (`CoordinateDisplay`)
 - **Component**: `CoordinateDisplay`
 - **Default Position**: `bottom-left`
-- **Description**: Real-time cursor coordinate tracking panel.
+- **Description**: Real-time cursor coordinate tracking and interactive coordinate picking panel styled as a modern dark glassmorphic capsule.
 - **Features**:
-  - **Dynamic Tracking**: Updates latitude and longitude continuously as the cursor moves across the map canvas.
+  - **Dynamic Tracking**: Updates latitude and longitude continuously as the cursor glides across the map canvas.
   - **Configurable Precision**: Pass `precision={5}` (default: 5 decimal places, approx. 1 meter accuracy).
-  - **Click-to-Copy**: Click the copy button to immediately copy the current `[lat, lng]` to the clipboard.
-  - **Click-to-Pin Popup**: Click on the map in coordinate mode to pin a persistent coordinate tooltip popup at that exact location.
-  - **Dark / Light Auto-Contrast**: Automatically adjusts text color contrast based on background luminance.
+  - **Click-to-Copy Current Cursor**: One-click copy icon copies the active coordinate pair directly to clipboard.
+  - **Interactive Map Point Picker**: Clicking the copy button activates crosshair picker mode (`cursor: crosshair`). Click anywhere on the map to pin the point, copy its exact coordinates to the clipboard, and receive instant toast feedback. Press `Escape` to cancel picker mode.
+  - **Dark / Light Auto-Contrast**: Automatically adjusts text contrast based on background color luminance.
 
 ---
 
-#### 15. Fullscreen View Control (`MapViewControl`)
+#### 18. Fullscreen View Control (`MapViewControl`)
 - **Component**: `MapViewControl`
 - **Default Position**: `bottom-right`
 - **Description**: Standalone button providing a native browser Fullscreen API toggle. Automatically synchronizes its icon state (`FullscreenIcon` / `FullscreenExitIcon`) on escape key or browser window mode changes.
 
 ---
 
-#### 16. Map Flat View Enforcer (`MapFlatViewEnforcer`)
+#### 19. Map Flat View Enforcer (`MapFlatViewEnforcer`)
 - **Component**: `MapFlatViewEnforcer`
 - **Description**: Background utility component mounted automatically by `<Mapixa />` when `enforceFlatView={true}` (the default). Ensures map pitch remains at $0^\circ$ and disables 3D pitch gestures for standard 2D cartographic operations.
 
 ---
 
-#### 17. Map Resize Handler (`MapResizeHandler`)
+#### 20. Map Resize Handler (`MapResizeHandler`)
 - **Component**: `MapResizeHandler`
 - **Description**: Background utility component that monitors viewport dimensions and container DOM resizing. Automatically triggers `map.resize()` to eliminate grey tiles, distorted canvas aspect ratios, or rendering artifacts during layout shifts.
 
@@ -543,7 +653,7 @@ Located in the **`TOOL`** accordion toolbar (`ExtraMapTools`) or imported as sta
 
 Mapixa makes it trivial to add your own proprietary GIS actions and navigation tools while matching the design system perfectly.
 
-#### 18. Custom Map Accordion (`MapAccordion`)
+#### 21. Custom Map Accordion (`MapAccordion`)
 - **Component**: `MapAccordion`
 - **Description**: Collapsible floating accordion panel. Automatically portals into the Mapixa toolbar column or can be positioned anywhere on the map using the `position` prop.
 - **Props**:
@@ -555,7 +665,7 @@ Mapixa makes it trivial to add your own proprietary GIS actions and navigation t
   - `backgroundColor`: Custom background color.
   - `footer`: Optional bottom element.
 
-#### 19. Custom Map Button (`MapButton`)
+#### 22. Custom Map Button (`MapButton`)
 - **Component**: `MapButton`
 - **Description**: Unified icon button component supporting tooltips, active states, badges, and direct access to the `maplibregl.Map` instance.
 - **Dual Mode**:
@@ -792,7 +902,8 @@ Override CSS variables in your stylesheet:
 |---|---|
 | `useMapTool()` | Access active tool state, draw callbacks (`onDrawEnd`, `onDrawDelete`), and tool configurations. |
 | `useExclusiveTool(toolName)` | Manages mutual exclusion between tools (e.g. activating `'polygon'` deactivates `'marker'`). Returns `[isActive, setIsActive]`. |
-| `useLayerVisibility()` | Programmatic access to layer visibility: `{ visibility, isToolVisible, toggleToolVisibility, setToolVisibility, setAllVisibility }`. |
+| `useDrawLayers()` | Programmatic access to all drawn vector shapes: `{ drawnLayers, isEraserMode, toggleEraserMode, addDrawnLayer, updateDrawnLayer, removeDrawnLayer, clearAllDrawnLayers, reorderDrawnLayers, toggleLayerVisibility, zoomToLayer }`. |
+| `useLayerVisibility()` | Programmatic access to tool layer visibility: `{ visibility, isToolVisible, toggleToolVisibility, setToolVisibility, setAllVisibility }`. |
 | `useAccordionGroupItem(id)` | Manages accordion open/collapsed mutual exclusion. |
 | `useAccordionContext()` | Checks whether a component is currently rendered inside a parent accordion. |
 | `useToolbarContext()` | Accesses the shared toolbar DOM element for dynamic portaling. |
@@ -868,7 +979,7 @@ import {
 | `extraActions` | `ExtraActionItem[]` | `[]` | Custom action buttons injected into tool dialogs. |
 | `visibility` | `Partial<LayerVisibilityState>` | `undefined` | Controlled layer visibility state. |
 | `initialVisibility` | `Partial<LayerVisibilityState>` | `undefined` | Uncontrolled default layer visibility. |
-| `toolsConfig` | `ToolsConfiguration` | `undefined` | Enable/disable individual tools and provide per-tool configs. |
+| `toolsConfig` | `ToolsConfiguration` | `undefined` | Enable/disable individual tools (`marker`, `line`, `polygon`, `circle`, `rectangle`, `freedraw`, `ruler`, `capture`, `goto`, `overlay`, `erase`, `layerManager`, `intersection`). |
 | `showDrawTools` | `boolean` | `true` | Show or hide the Draw tools accordion. |
 | `showExtraTools` | `boolean` | `true` | Show or hide the Extra tools accordion. |
 | `showNavigator` | `boolean` | `true` | Show or hide the Navigator panel. |
@@ -876,6 +987,10 @@ import {
 | `showFullscreen` | `boolean` | `true` | Show or hide the Fullscreen button. |
 | `enforceFlatView` | `boolean` | `true` | Enforce 2D flat view and disable 3D camera pitch. |
 | `autoResize` | `boolean` | `true` | Automatically handle canvas resize events. |
+| `showBasemapSwitcher` | `boolean` | `false` | Enable or disable the basemap switcher trigger inside the navigator. |
+| `basemapLayers` | `BasemapLayerItem[]` | `undefined` | Custom array of selectable basemap styles. |
+| `basemapOverlays` | `BasemapOverlayItem[]` | `undefined` | Custom array of toggleable transparent overlays. |
+| `basemapSwitcherProps` | `Partial<BasemapSwitcherProps>` | `undefined` | Advanced configuration options for the basemap switcher. |
 | `color` | `string` | `undefined` | Unified background color for all panels and dialogs. |
 | `colors` | `object` | `undefined` | Granular colors map for accordion, coordinate, navigator, modal, and popover. |
 | `accordionBackground` | `string` | `undefined` | Custom background for accordion toolbars. |
@@ -889,6 +1004,27 @@ import {
 | `onDrawChange` | `(event: DrawChangeEvent) => void` | `undefined` | Callback fired when shapes change. |
 | `onDrawDelete` | `(event: DrawDeleteEvent) => void` | `undefined` | Callback fired when a feature is deleted. |
 | `onVisibilityChange` | `(tool, visible, allState) => void` | `undefined` | Callback fired when a layer's visibility toggles. |
+
+---
+
+### `<BasemapSwitcher />`
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `layers` / `layer` | `BasemapLayerItem[]` | `[]` | List of selectable base map styles (`{ id, name, style, thumbnail, icon, description, default }`). |
+| `overlays` / `overlay` | `BasemapOverlayItem[]` | `[]` | List of toggleable transparent map overlays (`{ id, name, style, opacity, source, layers, default }`). |
+| `defaultLayerId` | `string` | `undefined` | ID of the initially active basemap. |
+| `activeLayerId` | `string` | `undefined` | Controlled active basemap ID. |
+| `onLayerChange` | `(layer: BasemapLayerItem) => void` | `undefined` | Callback fired when a basemap style is selected. |
+| `defaultOverlayIds` | `string[]` | `[]` | Initial active overlay IDs. |
+| `activeOverlayIds` | `string[]` | `undefined` | Controlled active overlay IDs. |
+| `onOverlayChange` | `(activeOverlayIds: string[]) => void` | `undefined` | Callback fired when active overlays change. |
+| `position` | `ControlPosition` | `undefined` | Floating map position when rendered as a standalone button. |
+| `inNavigator` | `boolean` | `false` | When `true`, embeds seamlessly inside the `MapNavigator` panel. |
+| `width` | `number` | `280` | Popover menu width in pixels. |
+| `popoverPlacement` | `'left' \| 'right' \| 'top' \| 'bottom' \| 'auto'` | `'right'` | Popover placement relative to the trigger button. |
+| `backgroundColor` | `string` | `undefined` | Custom background color. |
+| `tooltip` | `string` | `'Basemap & Overlays'` | Tooltip label. |
 
 ---
 
