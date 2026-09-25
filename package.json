@@ -1,6 +1,6 @@
 {
   "name": "mapixa",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A feature-rich, extensible suite of drawing, measurement, navigation, and layer visibility tools for MapLibre GL JS & React.",
   "keywords": [
     "mapixa",
