@@ -55,7 +55,9 @@
     "build:demo": "vite build --mode demo",
     "prepublishOnly": "npm run build:lib",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "peerDependencies": {
     "maplibre-gl": "^3.0.0 || ^4.0.0 || ^5.0.0",
@@ -94,6 +96,18 @@
     "react-dom": "^19.1.0",
     "typescript": "^5.4.5",
     "vite": "^6.2.6",
-    "vite-plugin-dts": "^4.5.3"
+    "vite-plugin-dts": "^4.5.3",
+    "storybook": "^10.6.0",
+    "@storybook/react-vite": "^10.6.0",
+    "@chromatic-com/storybook": "latest",
+    "@storybook/addon-vitest": "^10.6.0",
+    "@storybook/addon-a11y": "^10.6.0",
+    "@storybook/addon-docs": "^10.6.0",
+    "@storybook/addon-mcp": "^10.6.0",
+    "eslint-plugin-storybook": "^10.6.0",
+    "vitest": "latest",
+    "playwright": "latest",
+    "@vitest/browser-playwright": "latest",
+    "@vitest/coverage-v8": "latest"
   }
 }
